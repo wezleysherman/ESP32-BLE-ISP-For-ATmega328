@@ -7,8 +7,6 @@
  * and a header attched to identify them
  */
 
-extern image_t *images[];
-extern uint8_t NUMIMAGES;
 
 SPISettings fuses_spisettings = SPISettings(100000, MSBFIRST, SPI_MODE0);
 SPISettings flash_spisettings = SPISettings(100000, MSBFIRST, SPI_MODE0);
@@ -40,35 +38,6 @@ uint16_t readSignature (void)
     }
   }
   return target_type;
-}
-
-/*
- * findImage
- *
- * given 'signature' loaded with the relevant part of the device signature,
- * search the hex images that we have programmed in flash, looking for one
- * that matches.
- */
-image_t *findImage (uint16_t signature)
-{
-  image_t *ip;
-  Serial.println("Searching for image...");
-
-  for (byte i=0; i < NUMIMAGES; i++) {
-    ip = images[i];
-
-    if (ip && (pgm_read_word(&ip->image_chipsig) == signature)) {
-  Serial.print("  Found \"");
-  flashprint(&ip->image_name[0]);
-  Serial.print("\" for ");
-  flashprint(&ip->image_chipname[0]);
-  Serial.println();
-
-  return ip;
-    }
-  }
-  Serial.println(" Not Found");
-  return 0;
 }
 
 /*

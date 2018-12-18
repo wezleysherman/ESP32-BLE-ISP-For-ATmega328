@@ -20,28 +20,35 @@
    And txValue is the data to be sent, in this example just a byte incremented every second. 
 */
 #include "optiLoader.h"
+#include <EEPROM.h>
+#include <HTTPClient.h>
 #include "SPI.h"
-
+#include "soc/rtc.h"
 #include <BLEDevice.h>
 #include <BLEServer.h>
-#include <BLEUtils.h>
 #include <BLE2902.h>
-#include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
+#include <WiFi.h>
+#include "ArduinoJson.h"
+
 BLEServer *pServer = NULL;
 BLECharacteristic * pTxCharacteristic;
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
+bool wifiSetup = false;
 bool transmit = false;
 boolean target_poweroff ();
 void end_pmode();
 void start_pmode();
 bool receiveImage = false;
 int pmode=0;
+int wifiStep = 0;
 String image = "";
+String wifiData = "";
 void flashAtmega();
 boolean target_poweron ();
 uint8_t txValue = 0;
+
 uint8_t out_buff[6];
 // See the following for generating UUIDs:
 // https://www.uuidgenerator.net/
@@ -55,6 +62,22 @@ unsigned char checksum;
 #define MOSI 23
 #define LED_PROGMODE 17
 #define RESET 22
+#define EEPROM_SIZE 1000
+unsigned long updateTimer;
+
+typedef struct wifi_settings {
+  bool saved = true;
+  char ssid[128];
+  char password[128];
+  char deviceID[128];
+  char deviceName[128];
+  char deviceKey[15];
+  char buff[5];
+} WIFI;
+
+WIFI wifi_settings;
+
+
 
 class MyServerCallbacks: public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) {
@@ -78,7 +101,7 @@ class MyCallbacks: public BLECharacteristicCallbacks {
         for (int i = 0; i < rxValue.length(); i++)
           if(i % 2 == 0)
             input += rxValue[i];
-          
+        Serial.println(input);
         //Serial.print(input);
         if(receiveImage == true) {
           Serial.println("SHDM");
@@ -102,6 +125,53 @@ class MyCallbacks: public BLECharacteristicCallbacks {
         }
         Serial.println();
         Serial.println("*********");
+
+        if(wifiSetup == true) {
+          wifi_settings.saved = false;
+          wifiData += input;
+          if(wifiData.substring(wifiData.length()-5, wifiData.length()).equals("0x0FC")) {
+            wifiData = wifiData.substring(0, wifiData.length()-5);
+            if(wifiStep == 0) {
+              strcpy(wifi_settings.deviceName, wifiData.c_str()); 
+              uint8_t outBuff[] = "0x0DI";
+              memcpy(out_buff, outBuff, sizeof(outBuff));
+              transmit = true;
+            } else if(wifiStep == 1) {
+              strcpy(wifi_settings.deviceID, wifiData.c_str()); 
+              uint8_t outBuff[] = "0x0DS";
+              memcpy(out_buff, outBuff, sizeof(outBuff));
+              transmit = true;
+            } else if(wifiStep == 2) {
+              strcpy(wifi_settings.deviceKey, wifiData.c_str()); 
+              uint8_t outBuff[] = "0x0DD";
+              memcpy(out_buff, outBuff, sizeof(outBuff));
+              transmit = true;
+            } else if(wifiStep == 3) {
+              strcpy(wifi_settings.ssid, wifiData.c_str()); 
+              uint8_t outBuff[] = "0x0DW";
+              memcpy(out_buff, outBuff, sizeof(outBuff));
+              transmit = true;
+            } else if(wifiStep == 4) {
+              strcpy(wifi_settings.password, wifiData.c_str()); 
+              uint8_t outBuff[] = "0x00F";
+              memcpy(out_buff, outBuff, sizeof(outBuff));
+              transmit = true;
+              wifiStep = -1;
+              wifiSetup = false;
+            } else {
+              wifiStep = -1;
+              wifiSetup = false;
+            }
+            Serial.println(wifi_settings.deviceName);
+            EEPROM.put(0, wifi_settings);
+            EEPROM.commit();
+            wifiStep ++;
+            Serial.println(input);
+            delay(200);
+            wifiData = "";
+          }
+        }
+        
       
         String input2 = "0x0FA";
         if(input.equals(input2)) {
@@ -111,17 +181,31 @@ class MyCallbacks: public BLECharacteristicCallbacks {
           transmit = true;
           receiveImage = true;
         }
+
+        String inputWiFi = "0x0FB";
+        if(input.equals(inputWiFi)) {
+          Serial.println("Update WiFi");
+          uint8_t outBuff1[] = "0x0DN";
+          memcpy(out_buff, outBuff1, sizeof(outBuff1));
+          transmit = true;
+          wifiSetup = true;
+        }
       }
     }
 };
 
 
 void setup() {
+  updateTimer = millis();
+  rtc_clk_cpu_freq_set(RTC_CPU_FREQ_80M);
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); //disable brownout detector
 
   Serial.begin(115200);
-
+  EEPROM.begin(EEPROM_SIZE);
+  EEPROM.get(0, wifi_settings);
+  
   // Create the BLE Device
+  //esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT);
   BLEDevice::init("Trynkit Husky");
 
   // Create the BLE Server
@@ -151,7 +235,19 @@ void setup() {
 
   // Start advertising
   pServer->getAdvertising()->start();
-  Serial.println("Waiting a client connection to notify...");
+
+  // WiFi
+  WiFi.mode(WIFI_STA);
+  Serial.println(wifi_settings.saved);
+  if(wifi_settings.saved == false) {
+    Serial.println(wifi_settings.ssid);
+    Serial.println(wifi_settings.password);
+    Serial.println(wifi_settings.deviceID);
+    Serial.println(wifi_settings.deviceName);
+    Serial.println(wifi_settings.deviceKey);
+    WiFi.begin(wifi_settings.ssid, wifi_settings.password);
+  }
+  
 }
 unsigned int pageIndex = 1;
 
@@ -179,46 +275,39 @@ void flashAtmega() {
     target_poweron();
     uint16_t signature;
     signature = readSignature();
-    Serial.println(signature); 
     if(!signature) return;
     eraseChip();
     byte image_progfuses[4] = {0, 0x62, 0xdf, 0x00};
     uint16_t out = programFuses(image_progfuses);
-    Serial.println(out);
     end_pmode();
     start_pmode();
-    Serial.println("Set addresses and page space!");
-  byte pageBuffer[128]; /* One page of flash */
-
-  byte flash[image.length()];
-  image.getBytes(flash, image.length());
-  Serial.println(image);
-  Serial.println(image.length());
-  byte *hextext = flash;  
-  uint16_t pageaddr = 0;
-  uint8_t pagesize = 128;//pgm_read_byte(&targetimage->image_pagesize);
-  Serial.print("Page size: "); Serial.println(pagesize, DEC);
-  uint16_t chipsize = 16237;//pgm_read_word(&targetimage->chipsize);
-  Serial.print("Chip size: "); Serial.println(chipsize, DEC);
+    byte pageBuffer[128]; /* One page of flash */
   
-  while (pageaddr < chipsize && hextext) {
-     Serial.print("Writing address $"); Serial.println(pageaddr, HEX);
-     byte *hextextpos = readImagePage (hextext, pageaddr, pagesize, pageBuffer);
-          
-     boolean blankpage = true;
-     for (uint8_t i=0; i<pagesize; i++) {
-       if (pageBuffer[i] != 0xFF) blankpage = false;
-       
-     }          
-     if (! blankpage) {
-       if (! flashPage(pageBuffer, pageaddr, pagesize))  
-         error("Flash programming failed");
-     } else {
-      error("we has issues of blank pages");
-     }
-     hextext = hextextpos;
-     pageaddr += pagesize;
-}
+    byte flash[image.length()];
+    image.getBytes(flash, image.length());
+    byte *hextext = flash;  
+    uint16_t pageaddr = 0;
+    uint8_t pagesize = 128;//pgm_read_byte(&targetimage->image_pagesize);
+    uint16_t chipsize = 16237;//pgm_read_word(&targetimage->chipsize);
+    
+    while (pageaddr < chipsize && hextext) {
+       Serial.print("Writing address $"); Serial.println(pageaddr, HEX);
+       byte *hextextpos = readImagePage (hextext, pageaddr, pagesize, pageBuffer);
+            
+       boolean blankpage = true;
+       for (uint8_t i=0; i<pagesize; i++) {
+         if (pageBuffer[i] != 0xFF) blankpage = false;
+         
+       }          
+       if (! blankpage) {
+         if (! flashPage(pageBuffer, pageaddr, pagesize))  
+           error("Flash programming failed");
+       } else {
+        error("we has issues of blank pages");
+       }
+       hextext = hextextpos;
+       pageaddr += pagesize;
+    }
    
     programFuses(image_progfuses);
     delay(100);
@@ -231,9 +320,70 @@ void flashAtmega() {
     target_poweroff();
     image = "";
 }
+HTTPClient http;
 
+void fetchOTA() {
+  String url = "http://192.168.0.19:8000/api/fetch_ota/";
+  url += wifi_settings.deviceID;
+  url += "/";
+  url += wifi_settings.deviceKey;
+  //url = url.substring(0, url.length()-5);
+  Serial.println(url);
+  http.begin(url.c_str());
+  int httpResp = http.GET();
+  if(httpResp == 200) {
+    String httpResp = http.getString();
+    DynamicJsonBuffer JSONBuffer;                         //Memory pool
+    JsonObject& parsed = JSONBuffer.parseObject(httpResp); //Parse message
+    bool hasImage = parsed["has_update"];
+    Serial.println(httpResp);
+    Serial.println(hasImage);
+    if(hasImage) {
+      String codeImage = parsed["code"];
+      image ="";
+      image += codeImage;
+      image.replace("\r", "");
+      Serial.println(image);
+      flashAtmega();
+      deleteOTA();
+      receiveImage = false; 
+    }
+  }
+  http.end();
+  delay(100);
+}
+
+void deleteOTA() {
+  String url = "http://192.168.0.19:8000/api/delete_ota/";
+  url += wifi_settings.deviceID;
+  url += "/";
+  url += wifi_settings.deviceKey;
+  //url = url.substring(0, url.length()-5);
+  Serial.println(url);
+  http.begin(url.c_str());
+  int httpResp = http.GET();
+  http.end();
+}
+
+bool fetchingOTA = false;
+bool wifiFlag = false;
+bool wifiConnected = false;
 void loop() {
+    if(wifiConnected == false && WiFi.status() == WL_CONNECTED) {
+      Serial.print("WiFi Connected!" );
+      wifiConnected = true;
+    }
+
+    if(WiFi.status() == WL_CONNECTED && (millis() - updateTimer) >= 15000) {
+      updateTimer = millis();
+      fetchOTA();
+    }
+    
     if (deviceConnected) {
+      if(wifiFlag == false) {
+        disconnectWiFi();
+        delay(20);
+      }
       // bluetooth stack will go into congestion, if too many packets are sent
       if(transmit == true) {
         pTxCharacteristic->setValue(out_buff, 5);
@@ -243,22 +393,41 @@ void loop() {
         transmit = false;
         memcpy(out_buff, empty, sizeof(empty));
       }
-	}
-
+	  }
+  
     // disconnecting
     if (!deviceConnected && oldDeviceConnected) {
         delay(500); // give the bluetooth stack the chance to get things ready
         pServer->startAdvertising(); // restart advertising
-        Serial.println("start advertising");
         oldDeviceConnected = deviceConnected;
-        
-        
+        wifiStep = 0;
+        wifiSetup = false;
+        image = "";
+        reconnectWiFi();
     }
     // connecting
     if (deviceConnected && !oldDeviceConnected) {
-		// do stuff here on connecting
+		    wifiStep = 0;
+        wifiSetup = false;
+        image = "";
         oldDeviceConnected = deviceConnected;
     }
+}
+
+void disconnectWiFi() {
+   wifiFlag = true;
+   wifiConnected = false;
+   WiFi.disconnect();
+}
+
+void reconnectWiFi() {
+  wifiFlag = false;
+  Serial.println(wifiConnected);
+  Serial.println(wifi_settings.ssid);
+  Serial.println(wifi_settings.password);
+  WiFi.begin(wifi_settings.ssid, wifi_settings.password);
+  WiFi.reconnect();
+  Serial.print("WiFi Reconnecting");
 }
 
 void start_pmode () {
