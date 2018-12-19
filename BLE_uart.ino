@@ -29,7 +29,34 @@
 #include <BLE2902.h>
 #include "soc/rtc_cntl_reg.h"
 #include <WiFi.h>
+#include "esp_bt_main.h"
 #include "ArduinoJson.h"
+
+const char* HTTPS_CERT = "-----BEGIN CERTIFICATE-----\n" \
+"MIIESTCCAzGgAwIBAgITBn+UV4WH6Kx33rJTMlu8mYtWDTANBgkqhkiG9w0BAQsF\n" \
+"ADA5MQswCQYDVQQGEwJVUzEPMA0GA1UEChMGQW1hem9uMRkwFwYDVQQDExBBbWF6\n" \
+"b24gUm9vdCBDQSAxMB4XDTE1MTAyMjAwMDAwMFoXDTI1MTAxOTAwMDAwMFowRjEL\n" \
+"MAkGA1UEBhMCVVMxDzANBgNVBAoTBkFtYXpvbjEVMBMGA1UECxMMU2VydmVyIENB\n" \
+"IDFCMQ8wDQYDVQQDEwZBbWF6b24wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEK\n" \
+"AoIBAQDCThZn3c68asg3Wuw6MLAd5tES6BIoSMzoKcG5blPVo+sDORrMd4f2AbnZ\n" \
+"cMzPa43j4wNxhplty6aUKk4T1qe9BOwKFjwK6zmxxLVYo7bHViXsPlJ6qOMpFge5\n" \
+"blDP+18x+B26A0piiQOuPkfyDyeR4xQghfj66Yo19V+emU3nazfvpFA+ROz6WoVm\n" \
+"B5x+F2pV8xeKNR7u6azDdU5YVX1TawprmxRC1+WsAYmz6qP+z8ArDITC2FMVy2fw\n" \
+"0IjKOtEXc/VfmtTFch5+AfGYMGMqqvJ6LcXiAhqG5TI+Dr0RtM88k+8XUBCeQ8IG\n" \
+"KuANaL7TiItKZYxK1MMuTJtV9IblAgMBAAGjggE7MIIBNzASBgNVHRMBAf8ECDAG\n" \
+"AQH/AgEAMA4GA1UdDwEB/wQEAwIBhjAdBgNVHQ4EFgQUWaRmBlKge5WSPKOUByeW\n" \
+"dFv5PdAwHwYDVR0jBBgwFoAUhBjMhTTsvAyUlC4IWZzHshBOCggwewYIKwYBBQUH\n" \
+"AQEEbzBtMC8GCCsGAQUFBzABhiNodHRwOi8vb2NzcC5yb290Y2ExLmFtYXpvbnRy\n" \
+"dXN0LmNvbTA6BggrBgEFBQcwAoYuaHR0cDovL2NydC5yb290Y2ExLmFtYXpvbnRy\n" \
+"dXN0LmNvbS9yb290Y2ExLmNlcjA/BgNVHR8EODA2MDSgMqAwhi5odHRwOi8vY3Js\n" \
+"LnJvb3RjYTEuYW1hem9udHJ1c3QuY29tL3Jvb3RjYTEuY3JsMBMGA1UdIAQMMAow\n" \
+"CAYGZ4EMAQIBMA0GCSqGSIb3DQEBCwUAA4IBAQCFkr41u3nPo4FCHOTjY3NTOVI1\n" \
+"59Gt/a6ZiqyJEi+752+a1U5y6iAwYfmXss2lJwJFqMp2PphKg5625kXg8kP2CN5t\n" \
+"6G7bMQcT8C8xDZNtYTd7WPD8UZiRKAJPBXa30/AbwuZe0GaFEQ8ugcYQgSn+IGBI\n" \
+"8/LwhBNTZTUVEWuCUUBVV18YtbAiPq3yXqMB48Oz+ctBWuZSkbvkNodPLamkB2g1\n" \
+"upRyzQ7qDn1X8nn8N8V7YJ6y68AtkHcNSRAnpTitxBKjtKPISLMVCx7i4hncxHZS\n" \
+"yLyKQXhw2W2Xs0qLeC1etA+jTGDK4UfLeC0SF7FSi8o5LL21L8IzApar2pR/\n" \
+"-----END CERTIFICATE-----\n";
 
 BLEServer *pServer = NULL;
 BLECharacteristic * pTxCharacteristic;
@@ -193,49 +220,62 @@ class MyCallbacks: public BLECharacteristicCallbacks {
       }
     }
 };
+HTTPClient http;
 
+void deinitBLE() {
+     esp_bluedroid_disable();
+    esp_bluedroid_deinit();
+    esp_bt_controller_disable();
+    esp_bt_controller_deinit();
+        esp_bt_controller_mem_release(ESP_BT_MODE_BTDM);
+}
+
+void initBLE() {
+  ESP.restart();
+}
 
 void setup() {
   updateTimer = millis();
-  rtc_clk_cpu_freq_set(RTC_CPU_FREQ_80M);
-  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); //disable brownout detector
+ //rtc_clk_cpu_freq_set(RTC_CPU_FREQ_80M);
+  //WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); //disable brownout detector
 
   Serial.begin(115200);
   EEPROM.begin(EEPROM_SIZE);
   EEPROM.get(0, wifi_settings);
   
-  // Create the BLE Device
+   // Create the BLE Device
+    Serial.println("BLE init");
   //esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT);
   BLEDevice::init("Trynkit Husky");
-
+  Serial.println("BLE init complete");
   // Create the BLE Server
   pServer = BLEDevice::createServer();
   pServer->setCallbacks(new MyServerCallbacks());
-
+  Serial.println("Creating server forBLE");
   // Create the BLE Service
   BLEService *pService = pServer->createService(SERVICE_UUID);
 
   // Create a BLE Characteristic
   pTxCharacteristic = pService->createCharacteristic(
-										CHARACTERISTIC_UUID_TX,
-										BLECharacteristic::PROPERTY_NOTIFY
-									);
+                    CHARACTERISTIC_UUID_TX,
+                    BLECharacteristic::PROPERTY_NOTIFY
+                  );
                       
   pTxCharacteristic->addDescriptor(new BLE2902());
 
   BLECharacteristic * pRxCharacteristic = pService->createCharacteristic(
-											 CHARACTERISTIC_UUID_RX,
-											BLECharacteristic::PROPERTY_WRITE
-										);
+                       CHARACTERISTIC_UUID_RX,
+                      BLECharacteristic::PROPERTY_WRITE
+                    );
 
   pRxCharacteristic->setCallbacks(new MyCallbacks());
-
+  Serial.println("Created services");
   // Start the service
   pService->start();
 
   // Start advertising
   pServer->getAdvertising()->start();
-
+  Serial.println("Services started");
   // WiFi
   WiFi.mode(WIFI_STA);
   Serial.println(wifi_settings.saved);
@@ -320,23 +360,25 @@ void flashAtmega() {
     target_poweroff();
     image = "";
 }
-HTTPClient http;
 
 void fetchOTA() {
-  String url = "http://192.168.0.19:8000/api/fetch_ota/";
+  deinitBLE();
+  String url = "https://trynkit.us/api/fetch_ota/";
   url += wifi_settings.deviceID;
   url += "/";
   url += wifi_settings.deviceKey;
   //url = url.substring(0, url.length()-5);
   Serial.println(url);
-  http.begin(url.c_str());
+  http.begin(url.c_str(), HTTPS_CERT);
   int httpResp = http.GET();
   if(httpResp == 200) {
     String httpResp = http.getString();
     DynamicJsonBuffer JSONBuffer;                         //Memory pool
     JsonObject& parsed = JSONBuffer.parseObject(httpResp); //Parse message
     bool hasImage = parsed["has_update"];
-    Serial.println(httpResp);
+    String parsedOut;
+    parsed.printTo(parsedOut);
+    Serial.println(parsedOut);
     Serial.println(hasImage);
     if(hasImage) {
       String codeImage = parsed["code"];
@@ -351,16 +393,17 @@ void fetchOTA() {
   }
   http.end();
   delay(100);
+  initBLE();
 }
 
 void deleteOTA() {
-  String url = "http://192.168.0.19:8000/api/delete_ota/";
+  String url = "https://trynkit.us/api/delete_ota/";
   url += wifi_settings.deviceID;
   url += "/";
   url += wifi_settings.deviceKey;
   //url = url.substring(0, url.length()-5);
   Serial.println(url);
-  http.begin(url.c_str());
+  http.begin(url.c_str(), HTTPS_CERT);
   int httpResp = http.GET();
   http.end();
 }
