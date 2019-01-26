@@ -212,9 +212,15 @@ byte * readImagePage (byte *hextext, uint16_t pageaddr, uint8_t pagesize, byte *
   }
   return hextext;
 }
-
+bool flash = false;
 // Send one byte to the page buffer on the chip
 void flashWord (uint8_t hilo, uint16_t addr, uint8_t data) {
+  if(!flash) {
+    ledcWrite(0, 100); 
+  } else {
+    ledcWrite(0, 0);  
+  }
+  flash = !flash;
   spi_transaction(0x40+8*hilo, addr>>8 & 0xFF, addr & 0xFF, data);
 }
 

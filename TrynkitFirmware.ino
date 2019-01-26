@@ -8,25 +8,55 @@
 #include "TrynkitFirmware.h"
 #include "ReceiveCallBack.h"
 #include "ArduinoJson.h"
+#include <HardwareSerial.h>
 
 void setup() {
   Serial.begin(115200);
   // Restore WiFi settings if they exist
   EEPROM.begin(EEPROM_SIZE);
   EEPROM.get(0, wifi_settings);
-
+  ATmegaSerial.begin(9600, SERIAL_8N1, 3, 1);
   // Init BLE
   initBLE();
-  
+  //pinMode(12, OUTPUT);
+  ledcSetup(0, 5000, 8);
+  ledcAttachPin(12, 0);
   // Set WiFi OTA Timer after everything else has been initialized
   updateTimer = millis();
   WiFi.mode(WIFI_STA);
   if(wifi_settings.saved == false) {
     WiFi.begin(wifi_settings.ssid, wifi_settings.password);
   }
+  TaskHandle_t LEDTask;
+  xTaskCreatePinnedToCore(updateLED, "LEDTask", 10000, NULL, 1, &LEDTask, 0);
 }
 
+int serialCount = 0;
 void loop() {
+  if(deviceConnected && transmit != true && !receiveImage && !wifiSetup && !serialWrite) {
+    while(ATmegaSerial.available() > 0) {
+      uint8_t byteFromSerial = ATmegaSerial.read();
+      if(transmit != true && deviceConnected && !receiveImage) {
+        uint8_t usart_buff[6];
+        char* usart_out = "0xUT ";
+       // usart_out += byteFromSerial;
+        for(int i = 0; i < sizeof(usart_buff); i++) {
+            usart_buff[i] = uint8_t(usart_out[i]);
+        }
+        usart_buff[5] = (uint8_t)byteFromSerial;
+        pTxCharacteristic->setValue(usart_buff, sizeof(usart_buff));
+        pTxCharacteristic->notify();
+        delay(10);
+      }
+      if(serialCount > 10) {
+        serialCount = 0;
+        break;
+      }
+      serialCount ++;
+    }
+  }
+  //ledcWrite(0, 10);
+ // updateLED();
   if(wifiConnected == false && WiFi.status() == WL_CONNECTED) {
       Serial.print("WiFi Connected!" );
       wifiConnected = true;
@@ -62,6 +92,8 @@ void loop() {
         wifiSetup = false;
         image = "";
         reconnectWiFi();
+        digitalWrite(14, LOW);
+        reset();
     }
     // connecting
     if (deviceConnected && !oldDeviceConnected) {
@@ -75,6 +107,8 @@ void loop() {
 
 // Methods
 void initBLE() {
+ // digitalWrite(12, HIGH);
+
   BLEDevice::init("Trynkit Husky");
   pServer = BLEDevice::createServer();
   // Set up callback function for whenever something is received.
@@ -161,6 +195,13 @@ void MyServerCallbacks::onDisconnect(BLEServer* pServer) {
   deviceConnected = false;
 }
 
+void writeSerial(String serialOut) {
+  ATmegaSerial.flush();
+  for(int i = 0; i < sizeof(serialOut); i++) {
+    ATmegaSerial.write(serialOut[i]);
+  }
+}
+
 // Handles BLE receives for images and flashing
 void ReceiveCallBack::onWrite(BLECharacteristic *pCharacteristic) {
   std::string rxVal = pCharacteristic->getValue();
@@ -172,6 +213,17 @@ void ReceiveCallBack::onWrite(BLECharacteristic *pCharacteristic) {
       }
     }
 
+    if(serialWrite == true) {
+      serialBuff += input;
+        if(serialBuff.substring(serialBuff.length()-5, serialBuff.length()).equals("0x0UE")) {
+        serialBuff = serialBuff.substring(0, serialBuff.length()-5);
+        writeSerial(serialBuff);
+        serialWrite = false;
+        serialBuff = "";
+        return;
+      }
+    }
+    
     // BLE Flashing mode
     if(receiveImage == true) {
       image += input;
@@ -225,10 +277,15 @@ void ReceiveCallBack::onWrite(BLECharacteristic *pCharacteristic) {
       transmitOut("0x0FB");
       receiveImage = true;
     }
-
+    Serial.println(input);
     if(input.equals("0x0FB")) { // Update WiFi Settings
       transmitOut("0x0DN");
       wifiSetup = true;
+    }
+
+    if(input.equals("0x0UT")) {
+      serialWrite = true;
+      transmitOut("0x0UO");
     }
   }
 }
@@ -240,4 +297,30 @@ void ReceiveCallBack::transmitOut(char* output) {
     out_buff[i] = uint8_t(output[i]);
   }
   transmit = true;
+}
+
+void updateLED(void * pvParameters) {
+  int dir = 0;
+  int indexBlink = 0;
+  Serial.println("Asd");
+  while(true) {
+    Serial.println(deviceConnected);
+    if(deviceConnected) {
+      ledcWrite(0, indexBlink);
+      delay(20);
+      if(dir == 0) {
+         indexBlink ++;
+      } else {
+        indexBlink --;
+      }
+  
+      if(indexBlink >= 100) {
+        dir = 1;
+      } else if(indexBlink <= 0) {
+        dir = 0;
+      }
+    } else {
+        ledcWrite(0, 100);    
+    }
+  }
 }

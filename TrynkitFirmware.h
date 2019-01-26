@@ -14,13 +14,15 @@ unsigned long updateTimer; // WiFi OTA Timer
 BLEServer *pServer = NULL;
 BLECharacteristic * pTxCharacteristic;
 HTTPClient http;
-
+HardwareSerial ATmegaSerial(1);
 bool deviceConnected = false;
 uint8_t out_buff[7];
 bool receiveImage = false;
 bool wifiSetup = false;
 bool transmit = false;
+bool serialWrite = false;
 String image = ""; // image to flash
+String serialBuff = "";
 String wifiData = "";
 int wifiStep = 0;
 bool fetchingOTA = false;
