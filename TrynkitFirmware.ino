@@ -16,8 +16,6 @@ void setup() {
   EEPROM.begin(EEPROM_SIZE);
   EEPROM.get(0, wifi_settings);
   ATmegaSerial.begin(9600, SERIAL_8N1, 3, 1);
-  // Init BLE
-  initBLE();
   //pinMode(12, OUTPUT);
   ledcSetup(0, 5000, 8);
   ledcAttachPin(12, 0);
@@ -29,6 +27,8 @@ void setup() {
   }
   TaskHandle_t LEDTask;
   xTaskCreatePinnedToCore(updateLED, "LEDTask", 10000, NULL, 1, &LEDTask, 0);
+  // Init BLE
+  initBLE();
 }
 
 int serialCount = 0;
@@ -62,7 +62,7 @@ void loop() {
       wifiConnected = true;
     }
 
-    if(WiFi.status() == WL_CONNECTED && (millis() - updateTimer) >= 15000) {
+    if(WiFi.status() == WL_CONNECTED && (millis() - updateTimer) >= 60000) {
       updateTimer = millis();
       fetchOTA();
     }
