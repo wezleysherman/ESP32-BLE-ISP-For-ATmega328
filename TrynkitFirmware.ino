@@ -27,7 +27,7 @@ void setup() {
   }
   TaskHandle_t LEDTask;
   xTaskCreatePinnedToCore(updateLED, "LEDTask", 10000, NULL, 1, &LEDTask, 0);
-  // Init BLE
+   //Init BLE
   initBLE();
 }
 
@@ -150,7 +150,7 @@ void fetchOTA() {
       image ="";
       image += codeImage;
       image.replace("\r", "");
-      flashAtmega(image);
+      flashAtmega(&image);
       deleteOTA();
       receiveImage = false; 
     }
@@ -179,12 +179,8 @@ void disconnectWiFi() {
 
 void reconnectWiFi() {
   wifiFlag = false;
-  Serial.println(wifiConnected);
-  Serial.println(wifi_settings.ssid);
-  Serial.println(wifi_settings.password);
   WiFi.begin(wifi_settings.ssid, wifi_settings.password);
   WiFi.reconnect();
-  Serial.print("WiFi Reconnecting");
 }
 
 void MyServerCallbacks::onConnect(BLEServer* pServer) {
@@ -212,7 +208,6 @@ void ReceiveCallBack::onWrite(BLECharacteristic *pCharacteristic) {
         input += rxVal[i];
       }
     }
-
     if(serialWrite == true) {
       serialBuff += input;
         if(serialBuff.substring(serialBuff.length()-5, serialBuff.length()).equals("0x0UE")) {
@@ -230,9 +225,12 @@ void ReceiveCallBack::onWrite(BLECharacteristic *pCharacteristic) {
       if(image.substring(image.length()-5, image.length()).equals("0x0FC")) {
         transmitOut("0x0FC");
         image = image.substring(0, image.length()-5);
-        flashAtmega(image);
+        flashAtmega(&image);
+        Serial.println("Post BARF BLE");
+        Serial.println(ESP.getFreeHeap());
         receiveImage = false;
         image = "";
+        
         return;
       }
     }
@@ -277,7 +275,7 @@ void ReceiveCallBack::onWrite(BLECharacteristic *pCharacteristic) {
       transmitOut("0x0FB");
       receiveImage = true;
     }
-    Serial.println(input);
+   
     if(input.equals("0x0FB")) { // Update WiFi Settings
       transmitOut("0x0DN");
       wifiSetup = true;
@@ -302,12 +300,12 @@ void ReceiveCallBack::transmitOut(char* output) {
 void updateLED(void * pvParameters) {
   int dir = 0;
   int indexBlink = 0;
-  Serial.println("Asd");
+  //Serial.println("Asd");
   while(true) {
-    Serial.println(deviceConnected);
+    //Serial.println(deviceConnected);
+    vTaskDelay(20);
     if(deviceConnected) {
       ledcWrite(0, indexBlink);
-      delay(20);
       if(dir == 0) {
          indexBlink ++;
       } else {
@@ -323,4 +321,5 @@ void updateLED(void * pvParameters) {
         ledcWrite(0, 100);    
     }
   }
+  
 }
