@@ -5,7 +5,7 @@ int pmode = 0;
 SPISettings fuses_spisettings = SPISettings(100000, MSBFIRST, SPI_MODE0);
 SPISettings flash_spisettings = SPISettings(100000, MSBFIRST, SPI_MODE0);
 
-void flashAtmega(String* image) {
+void flashAtmega(String image) {
   target_poweron();
   uint16_t signature;
   signature = readSignature();
@@ -16,8 +16,8 @@ void flashAtmega(String* image) {
   end_pmode();
   start_pmode();
   byte pageBuffer[128]; /* One page of flash */
-  byte flash[image->length()];
-  image->getBytes(flash, image->length());
+  byte flash[image.length()];
+  image.getBytes(flash, image.length());
   byte *hextext = flash;  
   uint16_t pageaddr = 0;
   uint8_t pagesize = 128;//pgm_read_byte(&targetimage->image_pagesize);

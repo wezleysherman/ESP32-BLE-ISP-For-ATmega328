@@ -34,26 +34,31 @@ void setup() {
 int serialCount = 0;
 void loop() {
   if(deviceConnected && transmit != true && !receiveImage && !wifiSetup && !serialWrite) {
+    uint8_t usart_buffer[128];
+    char* usart_out = "0xUT ";
+    for(int i = 0; i < sizeof(usart_out)+1; i++) {
+        usart_buffer[i] = uint8_t(usart_out[i]);
+    }
+    int bufferCounter = 5;
     while(ATmegaSerial.available() > 0) {
-      uint8_t byteFromSerial = ATmegaSerial.read();
-      if(transmit != true && deviceConnected && !receiveImage) {
-        uint8_t usart_buff[6];
-        char* usart_out = "0xUT ";
-       // usart_out += byteFromSerial;
-        for(int i = 0; i < sizeof(usart_buff); i++) {
-            usart_buff[i] = uint8_t(usart_out[i]);
-        }
-        usart_buff[5] = (uint8_t)byteFromSerial;
-        pTxCharacteristic->setValue(usart_buff, sizeof(usart_buff));
-        pTxCharacteristic->notify();
-        delay(10);
-      }
-      if(serialCount > 10) {
-        serialCount = 0;
+      uint8_t serialByte = ATmegaSerial.read();
+      usart_buffer[bufferCounter] = serialByte;
+      bufferCounter ++;
+      if(bufferCounter >= 128) {
         break;
       }
-      serialCount ++;
     }
+    if(bufferCounter > 5) {
+      uint8_t output_buffer[bufferCounter];
+      for(int i = 0; i < bufferCounter; i++) {
+        output_buffer[i] = usart_buffer[i];
+      }
+      pTxCharacteristic->setValue(output_buffer, sizeof(output_buffer));
+      pTxCharacteristic->notify();
+      delay(10);
+      bufferCounter = 5;
+    }
+  
   }
   //ledcWrite(0, 10);
  // updateLED();
@@ -150,7 +155,7 @@ void fetchOTA() {
       image ="";
       image += codeImage;
       image.replace("\r", "");
-      flashAtmega(&image);
+      flashAtmega(image);
       deleteOTA();
       receiveImage = false; 
     }
@@ -225,9 +230,7 @@ void ReceiveCallBack::onWrite(BLECharacteristic *pCharacteristic) {
       if(image.substring(image.length()-5, image.length()).equals("0x0FC")) {
         transmitOut("0x0FC");
         image = image.substring(0, image.length()-5);
-        flashAtmega(&image);
-        Serial.println("Post BARF BLE");
-        Serial.println(ESP.getFreeHeap());
+        flashAtmega(image);
         receiveImage = false;
         image = "";
         

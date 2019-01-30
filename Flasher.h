@@ -19,7 +19,7 @@
 #define LED_PROGMODE 17
 #define RESET 22
 
-void flashAtmega(String* image);
+void flashAtmega(String image);
 void start_pmode();
 void end_pmode();
 boolean target_poweron();
