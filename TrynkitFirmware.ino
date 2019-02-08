@@ -22,9 +22,6 @@ void setup() {
   // Set WiFi OTA Timer after everything else has been initialized
   updateTimer = millis();
   WiFi.mode(WIFI_STA);
-  if(wifi_settings.saved == false) {
-    WiFi.begin(wifi_settings.ssid, wifi_settings.password);
-  }
   TaskHandle_t LEDTask;
   xTaskCreatePinnedToCore(updateLED, "LEDTask", 10000, NULL, 1, &LEDTask, 0);
    //Init BLE
@@ -34,7 +31,7 @@ void setup() {
 int serialCount = 0;
 void loop() {
   if(deviceConnected && transmit != true && !receiveImage && !wifiSetup && !serialWrite) {
-    uint8_t usart_buffer[128];
+    uint8_t usart_buffer[64];
     char* usart_out = "0xUT ";
     for(int i = 0; i < sizeof(usart_out)+1; i++) {
         usart_buffer[i] = uint8_t(usart_out[i]);
@@ -43,8 +40,10 @@ void loop() {
     while(ATmegaSerial.available() > 0) {
       uint8_t serialByte = ATmegaSerial.read();
       usart_buffer[bufferCounter] = serialByte;
-      bufferCounter ++;
-      if(bufferCounter >= 128) {
+      if(serialByte != NULL)
+        bufferCounter ++;
+      delay(10);
+      if(bufferCounter >= 64) {
         break;
       }
     }
@@ -53,6 +52,7 @@ void loop() {
       for(int i = 0; i < bufferCounter; i++) {
         output_buffer[i] = usart_buffer[i];
       }
+      delay(10);
       pTxCharacteristic->setValue(output_buffer, sizeof(output_buffer));
       pTxCharacteristic->notify();
       delay(10);
@@ -63,13 +63,17 @@ void loop() {
   //ledcWrite(0, 10);
  // updateLED();
   if(wifiConnected == false && WiFi.status() == WL_CONNECTED) {
-      Serial.print("WiFi Connected!" );
       wifiConnected = true;
     }
 
     if(WiFi.status() == WL_CONNECTED && (millis() - updateTimer) >= 60000) {
       updateTimer = millis();
       fetchOTA();
+    } else if((millis() - updateTimer) >= 60000) {
+        if(wifi_settings.saved == false && setConnect == false) {
+          setConnect = true;
+          WiFi.begin(wifi_settings.ssid, wifi_settings.password);
+        }
     }
     
     if (deviceConnected) {

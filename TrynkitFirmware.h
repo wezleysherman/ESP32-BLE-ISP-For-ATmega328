@@ -29,6 +29,7 @@ bool fetchingOTA = false;
 bool wifiFlag = false;
 bool wifiConnected = false;
 bool oldDeviceConnected = false;
+bool setConnect = false;
 
 // Structs
 typedef struct wifi_settings {
