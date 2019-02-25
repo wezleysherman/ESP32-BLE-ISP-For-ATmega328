@@ -9,6 +9,8 @@
 #include "ReceiveCallBack.h"
 #include "ArduinoJson.h"
 #include <HardwareSerial.h>
+#include "esp_ota_ops.h"
+#include <esp_partition.h>
 
 void setup() {
   Serial.begin(115200);
@@ -219,7 +221,7 @@ void ReceiveCallBack::onWrite(BLECharacteristic *pCharacteristic) {
     }
     if(serialWrite == true) {
       serialBuff += input;
-        if(serialBuff.substring(serialBuff.length()-5, serialBuff.length()).equals("0x0UE")) {
+      if(serialBuff.substring(serialBuff.length()-5, serialBuff.length()).equals("0x0UE")) {
         serialBuff = serialBuff.substring(0, serialBuff.length()-5);
         writeSerial(serialBuff);
         serialWrite = false;
@@ -291,6 +293,13 @@ void ReceiveCallBack::onWrite(BLECharacteristic *pCharacteristic) {
     if(input.equals("0x0UT")) {
       serialWrite = true;
       transmitOut("0x0UO");
+    }
+
+    if(input.equals("0xZU")) {
+      const char* partName = "app0";
+      PART = esp_partition_find_first(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_ANY, partName);
+      esp_ota_set_boot_partition(PART);
+      ESP.restart(); // restart ESP
     }
   }
 }

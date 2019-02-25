@@ -184,8 +184,12 @@ byte * readImagePage (byte *hextext, uint16_t pageaddr, uint8_t pagesize, byte *
 
     for (byte i=0; i < len; i++) {
       // read 'n' bytes
-      b = hexton(pgm_read_byte(hextext++));
-      b = (b<<4) + hexton(pgm_read_byte(hextext++));
+    //  if(i < len) {
+        b = hexton(pgm_read_byte(hextext++));
+        b = (b<<4) + hexton(pgm_read_byte(hextext++));
+     // } else {
+     //   b = 0xFF;
+      //}
       
       cksum += b;
 
@@ -204,6 +208,7 @@ byte * readImagePage (byte *hextext, uint16_t pageaddr, uint8_t pagesize, byte *
     if (pgm_read_byte(hextext++) != '\n') {
       break;
     }
+    if((pagesize - page_idx) < 16) break;
     if (page_idx == pagesize) 
       break;
   }
