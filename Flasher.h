@@ -16,8 +16,7 @@
 #define SCK 18
 #define MISO 19
 #define MOSI 23
-#define LED_PROGMODE 17
-#define RESET 22
+#define RESET 14
 
 void flashAtmega(String image);
 void start_pmode();

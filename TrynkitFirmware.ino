@@ -9,6 +9,8 @@
 #include "ReceiveCallBack.h"
 #include "ArduinoJson.h"
 #include <HardwareSerial.h>
+#include "esp_ota_ops.h"
+#include <esp_partition.h>
 
 void setup() {
   Serial.begin(115200);
@@ -17,6 +19,7 @@ void setup() {
   EEPROM.get(0, wifi_settings);
   ATmegaSerial.begin(9600, SERIAL_8N1, 3, 1);
   //pinMode(12, OUTPUT);
+  //Serial.println("Start");
   ledcSetup(0, 5000, 8);
   ledcAttachPin(12, 0);
   // Set WiFi OTA Timer after everything else has been initialized
@@ -219,7 +222,7 @@ void ReceiveCallBack::onWrite(BLECharacteristic *pCharacteristic) {
     }
     if(serialWrite == true) {
       serialBuff += input;
-        if(serialBuff.substring(serialBuff.length()-5, serialBuff.length()).equals("0x0UE")) {
+      if(serialBuff.substring(serialBuff.length()-5, serialBuff.length()).equals("0x0UE")) {
         serialBuff = serialBuff.substring(0, serialBuff.length()-5);
         writeSerial(serialBuff);
         serialWrite = false;
@@ -291,6 +294,13 @@ void ReceiveCallBack::onWrite(BLECharacteristic *pCharacteristic) {
     if(input.equals("0x0UT")) {
       serialWrite = true;
       transmitOut("0x0UO");
+    }
+
+    if(input.equals("0xZU")) {
+      const char* partName = "factory";
+      PART = esp_partition_find_first(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_ANY, partName);
+      esp_ota_set_boot_partition(PART);
+      ESP.restart(); // restart ESP
     }
   }
 }

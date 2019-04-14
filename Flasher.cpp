@@ -11,7 +11,7 @@ void flashAtmega(String image) {
   signature = readSignature();
   if(!signature) return;
   eraseChip();
-  byte image_progfuses[4] = {0, 0x62, 0xdf, 0x00};
+  byte image_progfuses[4] = {0, 0xff, 0xde, 0x05};//{0, 0xff, 0xde, 0x05};
   uint16_t out = programFuses(image_progfuses);
   end_pmode();
   start_pmode();
@@ -22,22 +22,104 @@ void flashAtmega(String image) {
   uint16_t pageaddr = 0;
   uint8_t pagesize = 128;//pgm_read_byte(&targetimage->image_pagesize);
   uint16_t chipsize = 16237;//pgm_read_word(&targetimage->chipsize);
+  uint8_t page_idx = 0;
 
-  while (pageaddr < chipsize && hextext) {
-     byte *hextextpos = readImagePage (hextext, pageaddr, pagesize, pageBuffer);
-          
-     boolean blankpage = true;
-     for (uint8_t i=0; i<pagesize; i++) {
-       if (pageBuffer[i] != 0xFF) blankpage = false;
-       
-     }          
-     if (! blankpage) {
-       if (! flashPage(pageBuffer, pageaddr, pagesize))  {}
-     }
-     hextext = hextextpos;
-     pageaddr += pagesize;
+  for (uint8_t i=0; i<pagesize; i++)
+    pageBuffer[i] = 0xFF;
+
+  while (pageaddr < chipsize && hextext) {   
+    uint16_t len;
+    byte *beginning = hextext;
+    
+    byte b, cksum = 0;
+
+    uint16_t lineaddr;
+
+    // Strip leading whitespace
+    byte c;
+    do {
+      c = pgm_read_byte(hextext++);
+    } while (c == ' ' || c == '\n' || c == '\t');
+
+      // read one line!
+    if (c != ':') {
+      break;
+    }
+    // Read the byte count into 'len'
+    len = hexton(pgm_read_byte(hextext++));
+    len = (len<<4) + hexton(pgm_read_byte(hextext++));
+    cksum = len;
+    
+    // read high address byte
+    b = hexton(pgm_read_byte(hextext++));  
+    b = (b<<4) + hexton(pgm_read_byte(hextext++));
+    cksum += b;
+    lineaddr = b;
+    
+    // read low address byte
+    b = hexton(pgm_read_byte(hextext++)); 
+    b = (b<<4) + hexton(pgm_read_byte(hextext++));
+    cksum += b;
+    lineaddr = (lineaddr << 8) + b;
+    
+    if (lineaddr >= (pageaddr + pagesize)) {
+      hextext = beginning;
+      break;
+    }
+
+    b = hexton(pgm_read_byte(hextext++)); // record type 
+    b = (b<<4) + hexton(pgm_read_byte(hextext++));
+    cksum += b;
+
+    if (b == 0x1) { 
+     hextext = nullptr;
+     break;
+    } 
+
+    for (byte i = 0; i < len; i++) {
+      b = hexton(pgm_read_byte(hextext++));
+      b = (b<<4) + hexton(pgm_read_byte(hextext++));
+
+      cksum += b;
+
+      pageBuffer[page_idx] = b;
+      page_idx++;
+
+      if (page_idx >= pagesize) {
+        boolean blankpage = true;
+        for (uint8_t i=0; i<pagesize; i++)
+           if (pageBuffer[i] != 0xFF) blankpage = false;
+                    
+        if (! blankpage) {
+          if (! flashPage(pageBuffer, pageaddr, pagesize))  {}
+        }
+        page_idx = 0;
+        pageaddr += pagesize;
+        for (uint8_t i=0; i<pagesize; i++)
+          pageBuffer[i] = 0xFF;
+      }
+    }
+    b = hexton(pgm_read_byte(hextext++));  // chxsum
+    b = (b<<4) + hexton(pgm_read_byte(hextext++));
+    cksum += b;
+    if (cksum != 0) {
+    }
+    if (pgm_read_byte(hextext++) != '\n') {
+      break;
+    }
+    if((pagesize - page_idx) < 16) break;
+    if (page_idx == pagesize) 
+      break;
   }
-  
+  boolean blankpage = true;
+  for (uint8_t i=0; i<pagesize; i++) {
+     if (pageBuffer[i] != 0xFF) blankpage = false;
+     
+   }          
+   if (! blankpage) {
+     if (! flashPage(pageBuffer, pageaddr, pagesize))  {}
+   }
+
   programFuses(image_progfuses);
   delay(100);
   end_pmode();
@@ -184,8 +266,12 @@ byte * readImagePage (byte *hextext, uint16_t pageaddr, uint8_t pagesize, byte *
 
     for (byte i=0; i < len; i++) {
       // read 'n' bytes
-      b = hexton(pgm_read_byte(hextext++));
-      b = (b<<4) + hexton(pgm_read_byte(hextext++));
+    //  if(i < len) {
+        b = hexton(pgm_read_byte(hextext++));
+        b = (b<<4) + hexton(pgm_read_byte(hextext++));
+     // } else {
+     //   b = 0xFF;
+      //}
       
       cksum += b;
 
@@ -204,6 +290,7 @@ byte * readImagePage (byte *hextext, uint16_t pageaddr, uint8_t pagesize, byte *
     if (pgm_read_byte(hextext++) != '\n') {
       break;
     }
+    if((pagesize - page_idx) < 16) break;
     if (page_idx == pagesize) 
       break;
   }

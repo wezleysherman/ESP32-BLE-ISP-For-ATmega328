@@ -30,6 +30,7 @@ bool wifiFlag = false;
 bool wifiConnected = false;
 bool oldDeviceConnected = false;
 bool setConnect = false;
+const esp_partition_t* PART;
 
 // Structs
 typedef struct wifi_settings {
