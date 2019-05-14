@@ -1,9 +1,8 @@
 #include "Arduino.h"
 #include <pgmspace.h>
 #include "SPI.h"
-#ifndef _FLASHER_H
-#define _FLASHER_H
-
+#ifndef _FLASHER_H_INCLUDED
+#define _FLASHER_H_INCLUDED
 
 #define FUSE_PROT 0      /* memory protection */
 #define FUSE_LOW 1      /* Low fuse */
@@ -18,7 +17,7 @@
 #define MOSI 23
 #define RESET 14
 
-void flashAtmega(String image);
+byte* flashAtmega(byte* hextext);
 void start_pmode();
 void end_pmode();
 boolean target_poweron();

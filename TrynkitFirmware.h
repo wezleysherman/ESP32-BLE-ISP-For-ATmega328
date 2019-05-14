@@ -1,3 +1,5 @@
+#ifndef FIRMWARE_H_INCLUDED
+#define FIRMWARE_H_INCLUDED
 // BLE UUID's for Trynkit Device
 // See the following for generating UUIDs:
 // https://www.uuidgenerator.net/
@@ -15,22 +17,32 @@ BLEServer *pServer = NULL;
 BLECharacteristic * pTxCharacteristic;
 HTTPClient http;
 HardwareSerial ATmegaSerial(1);
-bool deviceConnected = false;
-uint8_t out_buff[7];
-bool receiveImage = false;
-bool wifiSetup = false;
-bool transmit = false;
-bool serialWrite = false;
-String image = ""; // image to flash
-String serialBuff = "";
-String wifiData = "";
-int wifiStep = 0;
-bool fetchingOTA = false;
-bool wifiFlag = false;
-bool wifiConnected = false;
-bool oldDeviceConnected = false;
-bool setConnect = false;
+
 const esp_partition_t* PART;
+byte flash[32000];
+int flashIdx = 0;
+
+// New
+const int watchdog_timeout = 5000;
+hw_timer_t *wdt = NULL;
+hw_timer_t *deepsleep = NULL;
+String recv_buffer = "";
+unsigned char ble_state = 0;
+bool old_device_connected = false;
+bool device_connected = false;
+uint8_t out_buff[7];
+bool transmit = false;
+bool flashing = false;
+byte* flashPos;
+bool receiving = false;
+uint8_t usart_buffer[256];
+int bufferCounter = 0;
+String wifi_data = "";
+unsigned char wifi_state = 0;
+String serialNum = "";
+
+void IRAM_ATTR deep_sleep();
+void IRAM_ATTR watchdog_reset();
 
 // Structs
 typedef struct wifi_settings {
@@ -76,3 +88,4 @@ const char* HTTPS_CERT = "-----BEGIN CERTIFICATE-----\n" \
 "upRyzQ7qDn1X8nn8N8V7YJ6y68AtkHcNSRAnpTitxBKjtKPISLMVCx7i4hncxHZS\n" \
 "yLyKQXhw2W2Xs0qLeC1etA+jTGDK4UfLeC0SF7FSi8o5LL21L8IzApar2pR/\n" \
 "-----END CERTIFICATE-----\n";
+#endif
