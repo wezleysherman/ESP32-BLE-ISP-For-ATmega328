@@ -21,7 +21,12 @@ void setup() {
 	// Restore WiFi settings if they exist
 	EEPROM.begin(EEPROM_SIZE);
 	EEPROM.get(0, wifi_settings);
-	ATmegaSerial.begin(9600, SERIAL_8N1, 3, 1);
+	//ATmegaSerial.begin(9600, SERIAL_8N1, 3, 1);
+	//Serial.println(wifi_settings.ssid);
+	//Serial.println(wifi_settings.deviceKey);
+	//Serial.println(wifi_settings.deviceID);
+	//Serial.println(wifi_settings.saved);
+	//Serial.println(wifi_settings.password);
 //
 	ledcSetup(0, 5000, 8);
 	ledcAttachPin(12, 0);
@@ -127,7 +132,21 @@ void loop() {
 			memset(output_buffer, 0xFF, sizeof output_buffer);
 		}
 	}
+
 	// Update WiFi
+	if(wifiConnected == false && WiFi.status() == WL_CONNECTED) {
+      wifiConnected = true;
+    }
+
+    if(WiFi.status() == WL_CONNECTED && (millis() - updateTimer) >= 60000) {
+      updateTimer = millis();
+      fetchOTA();
+    } else if((millis() - updateTimer) >= 60000) {
+        if(wifi_settings.saved == false && setConnect == false) {
+          setConnect = true;
+          WiFi.begin(wifi_settings.ssid, wifi_settings.password);
+        }
+    }
 }
 
 // BLE FSM?
@@ -149,6 +168,9 @@ void process_ble_recv() {
 				PART = esp_partition_find_first(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_ANY, partName);
 				esp_ota_set_boot_partition(PART);
 				ESP.restart(); // restart ESP
+			} else if(recv_buffer.equals("0x0FW")) {
+				transmitOut("0x0DN");
+				ble_state = 4;
 			}
 			break;
 		case 1:			// Flash
@@ -179,9 +201,6 @@ void process_ble_recv() {
 			break;
 		case 2:			// WiFi Scan
 			{
-			wifi_settings.saved = false;
-			wifi_data += recv_buffer;
-			//if(wifi_data.substring(wifi_data.length()-5, wifi_data.length()).equals("0x0FC")) {
 			WiFi.disconnect();
 			String networks_json = "\"";
 			networks_json += serialNum;
@@ -219,7 +238,14 @@ void process_ble_recv() {
 			transmitOut("0x0DZ");
 			ble_state = 0;
 			}
-				/*
+			break;
+		case 3:			// Serial Write
+			break;
+		case 4:
+			{
+			wifi_settings.saved = false;
+			wifi_data += recv_buffer;
+			if(wifi_data.substring(wifi_data.length()-5, wifi_data.length()).equals("0x0FC")) {
 				wifi_data = wifi_data.substring(0, wifi_data.length()-5);
 				if(wifi_state  == 0) {
 					strcpy(wifi_settings.deviceName, wifi_data.c_str()); 
@@ -246,11 +272,10 @@ void process_ble_recv() {
 				EEPROM.commit();
 				wifi_state ++;
 				delay(200);
-				wifi_data = "";*/
-			//}
-			break;
-		case 3:			// Serial Write
-			break;
+				wifi_data = "";
+			}
+		}
+		break;
 	}
 	recv_buffer = "";
 }
@@ -263,7 +288,6 @@ void IRAM_ATTR watchdog_reset() {
 // Methods
 void initBLE() {
 	// digitalWrite(12, HIGH);
-
 	BLEDevice::init("Trynkit Husky");
 	pServer = BLEDevice::createServer();
 	// Set up callback function for whenever something is received.
@@ -288,13 +312,12 @@ void reset() {
 }
 
 void fetchOTA() {
-	/*
 	deinitBLE();
-	String url = "https://trynkit.us/api/fetch_ota/";
+	String url = debugURL + "/api/fetch_ota/";
 	url += wifi_settings.deviceID;
 	url += "/";
 	url += wifi_settings.deviceKey;
-	http.begin(url.c_str(), HTTPS_CERT);
+	http.begin(url.c_str());//, HTTPS_CERT);
 	int httpResp = http.GET();
 	if(httpResp == 200) {
 		String httpResp = http.getString();
@@ -302,46 +325,49 @@ void fetchOTA() {
 		JsonObject& parsed = JSONBuffer.parseObject(httpResp); //Parse message
 		bool hasImage = parsed["has_update"];
 		if(hasImage) {
-			String codeImage = parsed["code"];
-			image ="";
-			flashIdx = 0;
-			image += codeImage;
-			image.replace("\r", "");
-			//flashAtmega(image);
+			String parsedCode = parsed["code"];
+			parsedCode.replace("\r", "");
+			for(int i = 0; i < parsedCode.length(); i++) {
+				flash[i] = parsedCode[i];
+			}
+			Serial.println(parsedCode);
+			flashing = true;
+			flashPos = flash;
+			while(flashing) {
+				flashPos = flashAtmega(flashPos);
+				if(flashPos == nullptr) {
+					Serial.println("Done");
+					flashIdx = 0;
+					memset(flash, 0xFF, sizeof flash);
+					flashing = false;
+				}
+			}
 			deleteOTA();
-			receiveImage = false; 
 		}
 	}
 	http.end();
 	delay(100);
-	reset();*/
+	reset();
 }
 
 void deleteOTA() {
-	/*
-	String url = "https://trynkit.us/api/delete_ota/";
+	String url = debugURL + "/api/delete_ota/";
 	url += wifi_settings.deviceID;
 	url += "/";
 	url += wifi_settings.deviceKey;
-	http.begin(url.c_str(), HTTPS_CERT);
+	http.begin(url.c_str());//, HTTPS_CERT);
 	int httpResp = http.GET();
-	http.end();*/
+	http.end();
 }
 
 void disconnectWiFi() {
-	/*
-	wifiFlag = true;
 	wifiConnected = false;
 	WiFi.disconnect();
-	*/
 }
 
 void reconnectWiFi() {
-	/*
-	wifiFlag = false;
 	WiFi.begin(wifi_settings.ssid, wifi_settings.password);
 	WiFi.reconnect();
-	*/
 }
 
 void MyServerCallbacks::onConnect(BLEServer* pServer) {

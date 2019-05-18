@@ -18,10 +18,14 @@ BLECharacteristic * pTxCharacteristic;
 HTTPClient http;
 HardwareSerial ATmegaSerial(1);
 
+String trynkitURL = "https://trynkit.us";
+String debugURL = "http://192.168.0.19:8000";
+
 const esp_partition_t* PART;
 byte flash[32000];
 int flashIdx = 0;
-
+bool wifiConnected = false;
+bool setConnect = false;
 // New
 const int watchdog_timeout = 5000;
 hw_timer_t *wdt = NULL;

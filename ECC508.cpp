@@ -86,7 +86,7 @@ String getSerial() {
   while(Wire.requestFrom(96, 4) != 4 && retries--);
   while(Wire.available()) { 
     serialNum += Wire.read();
-    serialNum += " ";
+    //serialNum += "+";
   }
  
   idle();
@@ -114,7 +114,7 @@ String getSerial() {
   while(Wire.requestFrom(96, 4) != 4 && retries--);
   while(Wire.available()) { 
     serialNum += Wire.read();
-    serialNum += " ";
+  //  serialNum += "+";
   }
 
   idle();
@@ -142,9 +142,9 @@ String getSerial() {
   while(Wire.requestFrom(96, 4) != 4 && retries--);
   while(Wire.available()) { 
     serialNum += Wire.read();
-    serialNum += " ";
+   // serialNum += "+";
   }
-  serialNum = serialNum.substring(0, serialNum.length()-1);
+ // serialNum = serialNum.substring(0, serialNum.length()-1);
   idle();
   return serialNum;
 }
