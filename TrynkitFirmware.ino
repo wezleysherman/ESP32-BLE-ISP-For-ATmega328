@@ -21,7 +21,7 @@ void setup() {
 	// Restore WiFi settings if they exist
 	EEPROM.begin(EEPROM_SIZE);
 	EEPROM.get(0, wifi_settings);
-	//ATmegaSerial.begin(9600, SERIAL_8N1, 3, 1);
+	ATmegaSerial.begin(9600, SERIAL_8N1, 3, 1);
 	//Serial.println(wifi_settings.ssid);
 	//Serial.println(wifi_settings.deviceKey);
 	//Serial.println(wifi_settings.deviceID);
@@ -161,7 +161,7 @@ void process_ble_recv() {
 				wifi_state = 0;
 				ble_state = 2;
 			} else if(recv_buffer.equals("0x0UT")) {
-				transmitOut("0x0UD");
+				transmitOut("0x0UO");
 				ble_state = 3;
 			} else if(recv_buffer.equals("0xZU")) {
 				const char* partName = "factory";
@@ -240,6 +240,14 @@ void process_ble_recv() {
 			}
 			break;
 		case 3:			// Serial Write
+			serialBuff += recv_buffer;
+			if(serialBuff.substring(serialBuff.length()-5, serialBuff.length()).equals("0x0UE")) {
+			  serialBuff = serialBuff.substring(0, serialBuff.length()-5);
+			  serialBuff += '\r';
+			  writeSerial(serialBuff);
+			  serialBuff = "";
+			  ble_state = 0;
+			}
 			break;
 		case 4:
 			{

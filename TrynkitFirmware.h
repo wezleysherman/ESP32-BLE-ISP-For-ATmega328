@@ -23,6 +23,7 @@ String debugURL = "http://192.168.0.19:8000";
 
 const esp_partition_t* PART;
 byte flash[32000];
+String serialBuff;
 int flashIdx = 0;
 bool wifiConnected = false;
 bool setConnect = false;
