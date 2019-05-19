@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include <EEPROM.h>
 #include <BLEDevice.h>
 #include <BLE2902.h>
@@ -7,7 +8,7 @@
 #include "Flasher.h"
 #include "TrynkitFirmware.h"
 #include "ReceiveCallBack.h"
-#include "ArduinoJson.h"
+#include <ArduinoJson.h>
 #include <HardwareSerial.h>
 #include "esp_ota_ops.h"
 #include <esp_partition.h>
@@ -15,6 +16,23 @@
 #include "ECC508.h"
 #include "esp32-hal-cpu.h"
 
+int serialCount = 0;
+
+void process_ble_recv();
+void IRAM_ATTR watchdog_reset();
+void initBLE();
+void deinitBLE();
+void reset();
+void fetchOTA();
+void deleteOTA();
+void disconnectWiFi();
+void reconnectWiFi();
+void onConnect(BLEServer* pServer);
+void onDisconnect(BLEServer* pServer);
+void writeSerial(String serialOut);
+void onWrite(BLECharacteristic *pCharacteristic);
+void transmitOut(char* output);
+void updateLED(void * pvParameters);
 
 void setup() {
 	Serial.begin(115200);
@@ -55,8 +73,6 @@ void setup() {
 	//Serial.println("Rip: ");
 	//Serial.println(serialNum);
 }
-
-int serialCount = 0;
 
 void loop() {
 	// Reset WDT
