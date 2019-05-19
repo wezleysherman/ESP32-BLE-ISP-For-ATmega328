@@ -1,0 +1,5 @@
+.pio
+.pioenvs
+.piolibdeps
+lib/
+test/
