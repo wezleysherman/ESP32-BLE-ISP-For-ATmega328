@@ -1,18 +1,42 @@
 #!/bin/bash
 if [ "$1" == "bootloader" ]; then
-    $offset = 0x1000
-    echo "Offset set for bootloader ($offset)"
+	if [ "$2" == 0 ]; then
+	    rmdir Trynkit-Firmware-Updater
+        git clone https://github.com/wezleysherman/Trynkit-Firmware-Updater
+        python /root/esp-idf/components/esptool_py/esptool/esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 115200 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 40m --flash_size detect 0x1000 /root/TrynkitEsp32ISP/bootloader.bin
+	else
+	    python /root/esp-idf/components/esptool_py/esptool/esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 115200 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 40m --flash_size detect 0x1000 $2
+    fi
 elif [ "$1" == "partitiontable" ]; then
-    $offset = 0x8000
-    echo "Offset set for partitiontable ($offset)"
+    if [ "$2" == 0 ]; then
+        rmdir TrynkitEsp32ISP
+        git clone https://github.com/wezleysherman/TrynkitEsp32ISP
+        python /root/esp-idf/components/esptool_py/esptool/esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 115200 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 40m --flash_size detect 0x8000 /root/TrynkitEsp32ISP/binary_partitions.bin
+	else
+	    python /root/esp-idf/components/esptool_py/esptool/esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 115200 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 40m --flash_size detect 0x8000 $2
+    fi
 elif [ "$1" == "updater" ]; then
-    $offset = 0x10000
-    echo "Offset set for updater ($offset)"
+    if [ "$2" == 0 ]; then
+        rmdir TrynkitEsp32ISP
+        git clone https://github.com/wezleysherman/TrynkitEsp32ISP
+        cd TrynkitEsp32ISP
+        pio run
+        cd ../
+        python /root/esp-idf/components/esptool_py/esptool/esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 115200 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 40m --flash_size detect 0x130000 /root/TrynkitEsp32ISP/.pioenvs/esp32doit-devkit-v1/firmware.bin
+	else
+        python /root/esp-idf/components/esptool_py/esptool/esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 115200 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 40m --flash_size detect 0x130000 $2
+    fi
 elif [ "$1" == "firmware" ]; then
-    $offset = 0x130000
-    echo "Offset set for firmware ($offset)"
+    if [ "$2" == 0 ]; then
+        rmdir TrynkitEsp32ISP
+        git clone https://github.com/wezleysherman/TrynkitEsp32ISP
+        cd TrynkitEsp32ISP
+        pio run
+        cd ../
+        python /root/esp-idf/components/esptool_py/esptool/esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 115200 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 40m --flash_size detect 0x130000 /root/TrynkitEsp32ISP/.pioenvs/esp32doit-devkit-v1/firmware.bin
+    else
+        python /root/esp-idf/components/esptool_py/esptool/esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 115200 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 40m --flash_size detect 0x130000 $2
+    fi
 else
-    echo "Invalid offset parameter, try flash.sh [bootloader, partitiontable, updater, firmware] [path_to_bootloader.bin]"
+    echo "Invalid parameter(s), try flash.sh [\"bootloader\", \"partitiontable\", \"updater\", \"firmware\"] <path_to_file.bin>"
 fi
-
-python /root/esp-idf/components/esptool_py/esptool/esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 115200 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 40m --flash_size detect $offset $2
