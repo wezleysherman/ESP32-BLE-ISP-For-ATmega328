@@ -1,7 +1,7 @@
 #!/bin/bash
 if [ "$1" == "bootloader" ]; then
     if [[ $2 -eq 0 ]]; then
-        rmdir Trynkit-Firmware-Updater
+        rm -rf Trynkit-Firmware-Updater
         git clone https://github.com/wezleysherman/Trynkit-Firmware-Updater
         python /root/esp-idf/components/esptool_py/esptool/esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 115200 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 40m --flash_size detect 0x1000 /root/Trynkit-Firmware-Updater/bootloader.bin
     else
@@ -9,7 +9,7 @@ if [ "$1" == "bootloader" ]; then
     fi
 elif [ "$1" == "partitiontable" ]; then
     if [[ $2 -eq 0 ]]; then
-        rmdir TrynkitEsp32ISP
+        rm -rf TrynkitEsp32ISP
         git clone https://github.com/wezleysherman/TrynkitEsp32ISP
         python /root/esp-idf/components/esptool_py/esptool/esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 115200 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 40m --flash_size detect 0x8000 /root/TrynkitEsp32ISP/binary_partitions.bin
     else
@@ -17,7 +17,7 @@ elif [ "$1" == "partitiontable" ]; then
     fi
 elif [ "$1" == "updater" ]; then
     if [[ $2 -eq 0 ]]; then
-        rmdir TrynkitEsp32ISP
+        rm -rf Trynkit-Firmware-Updater
         git clone https://github.com/wezleysherman/Trynkit-Firmware-Updater
         cd TrynkitEsp32ISP
         pio run
@@ -28,7 +28,7 @@ elif [ "$1" == "updater" ]; then
     fi
 elif [ "$1" == "firmware" ]; then
     if [[ $2 -eq 0 ]]; then
-        rmdir TrynkitEsp32ISP
+        rm -rf TrynkitEsp32ISP
         git clone https://github.com/wezleysherman/TrynkitEsp32ISP
         cd TrynkitEsp32ISP
         pio run
