@@ -16,8 +16,6 @@
 #include "ECC508.h"
 #include "esp32-hal-cpu.h"
 
-int serialCount = 0;
-
 void process_ble_recv();
 void IRAM_ATTR watchdog_reset();
 void initBLE();
