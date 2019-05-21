@@ -34,9 +34,10 @@ elif [ "$1" == "updater" ]; then
             cd Trynkit-Firmware-Updater
         fi
         pio run
-        python /root/esp-idf/components/esptool_py/esptool/esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 115200 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 40m --flash_size detect 0x130000 /root/Trynkit-Firmware-Updater/.pioenvs/esp32doit-devkit-v1/firmware.bin
+        python /root/esp-idf/components/esptool_py/esptool/esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 115200 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 40m --flash_size detect 0x10000 /root/Trynkit-Firmware-Updater/.pioenvs/esp32doit-devkit-v1/firmware.bin
     else
-        python /root/esp-idf/components/esptool_py/esptool/esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 115200 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 40m --flash_size detect 0x130000 $2
+        pio run
+        python /root/esp-idf/components/esptool_py/esptool/esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 115200 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 40m --flash_size detect 0x10000 $2
     fi
 elif [ "$1" == "firmware" ]; then
     if [[ $2 -eq 0 ]]; then
@@ -50,6 +51,7 @@ elif [ "$1" == "firmware" ]; then
         pio run
         python /root/esp-idf/components/esptool_py/esptool/esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 115200 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 40m --flash_size detect 0x130000 /root/TrynkitEsp32ISP/.pioenvs/esp32doit-devkit-v1/firmware.bin
     else
+        pio run
         python /root/esp-idf/components/esptool_py/esptool/esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 115200 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 40m --flash_size detect 0x130000 $2
     fi
 else
