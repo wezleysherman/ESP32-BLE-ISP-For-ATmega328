@@ -1,0 +1,7 @@
+# Name,   Type, SubType, Offset,   Size, Flags
+nvs,      data, nvs,     0x9000,   20K,
+otadata,  data, ota,     0xe000,   8K,
+app0, 	  app,	factory, 0x10000,  1150K,
+firm,	  app,	ota_0, 	 0x130000, 2400K,
+eeprom,   data, 0x99,    0x390000, 4K,
+spiffs,   data, spiffs,  0x391000, 444K,
