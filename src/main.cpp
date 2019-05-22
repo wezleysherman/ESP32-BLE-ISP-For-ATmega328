@@ -1,3 +1,4 @@
+//Trynkit Husky Firmware
 #include <Arduino.h>
 #include <EEPROM.h>
 #include <BLEDevice.h>
@@ -33,7 +34,7 @@ void transmitOut(char* output);
 void updateLED(void * pvParameters);
 
 void setup() {
-	Serial.begin(115200);
+	//Serial.begin(115200);
 	// Restore WiFi settings if they exist
 	EEPROM.begin(EEPROM_SIZE);
 	EEPROM.get(0, wifi_settings);
@@ -166,27 +167,6 @@ void loop() {
 // BLE FSM?
 void process_ble_recv() {
 	switch(ble_state) {
-		case 0:
-			if(recv_buffer.equals("0x0FA")) {
-				transmitOut("0x0FB");
-				ble_state = 1;
-			} else if(recv_buffer.equals("0x0FB")) {
-				transmitOut("0x0DN");
-				wifi_state = 0;
-				ble_state = 2;
-			} else if(recv_buffer.equals("0x0UT")) {
-				transmitOut("0x0UO");
-				ble_state = 3;
-			} else if(recv_buffer.equals("0xZU")) {
-				const char* partName = "factory";
-				PART = esp_partition_find_first(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_ANY, partName);
-				esp_ota_set_boot_partition(PART);
-				ESP.restart(); // restart ESP
-			} else if(recv_buffer.equals("0x0FW")) {
-				transmitOut("0x0DN");
-				ble_state = 4;
-			}
-			break;
 		case 1:			// Flash
 			if(recv_buffer.substring(recv_buffer.length()-5, recv_buffer.length()).equals("0x0FC")) {
 				for(int i = 0; i < recv_buffer.length(); i++) {
@@ -299,6 +279,27 @@ void process_ble_recv() {
 		}
 		break;
 	}
+
+	if(recv_buffer.equals("0x0FA")) {
+		transmitOut("0x0FB");
+		ble_state = 1;
+	} else if(recv_buffer.equals("0x0FB")) {
+		transmitOut("0x0DN");
+		wifi_state = 0;
+		ble_state = 2;
+	} else if(recv_buffer.equals("0x0UT")) {
+		transmitOut("0x0UO");
+		ble_state = 3;
+	} else if(recv_buffer.equals("0xZU")) {
+		const char* partName = "factory";
+		PART = esp_partition_find_first(ESP_PARTITION_TYPE_APP, ESP_PARTITION_SUBTYPE_ANY, partName);
+		esp_ota_set_boot_partition(PART);
+		ESP.restart(); // restart ESP
+	} else if(recv_buffer.equals("0x0FW")) {
+		transmitOut("0x0DN");
+		ble_state = 4;
+	}
+	
 	recv_buffer = "";
 }
 
