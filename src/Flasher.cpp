@@ -5,10 +5,10 @@ int pmode = 0;
 SPISettings fuses_spisettings = SPISettings(100000, MSBFIRST, SPI_MODE0);
 SPISettings flash_spisettings = SPISettings(100000, MSBFIRST, SPI_MODE0);
 unsigned char flash_state = 0;
-byte image_progfuses[4] = {0, 0xff, 0xde, 0x05};//{0, 0xff, 0xde, 0x05};
+byte image_progfuses[4] = {0x3f, 0xff, 0xde, 0x05};//{0, 0xff, 0xde, 0x05};
 uint16_t pageaddr = 0;
 uint8_t pagesize = 128;//pgm_read_byte(&targetimage->image_pagesize);
-uint16_t chipsize = 16237;//pgm_read_word(&targetimage->chipsize);
+uint16_t chipsize = 32768;//pgm_read_word(&targetimage->chipsize);
 uint8_t page_idx = 0;
 byte pageBuffer[128]; /* One page of flash */
 
@@ -26,7 +26,7 @@ byte* flashAtmega(byte* hextext) {
 				start_pmode();
 				pageaddr = 0;
 				pagesize = 128;//pgm_read_byte(&targetimage->image_pagesize);
-				chipsize = 16237;//pgm_read_word(&targetimage->chipsize);
+				chipsize = 32474;//pgm_read_word(&targetimage->chipsize);
 				page_idx = 0;
 				for (uint8_t i=0; i<pagesize; i++)
 					pageBuffer[i] = 0xFF;
@@ -36,6 +36,8 @@ byte* flashAtmega(byte* hextext) {
 		case 1:
 			{
 				if (pageaddr < chipsize && hextext) {   
+          Serial.print("Page: ");
+          Serial.println(pageaddr);
 					uint16_t len;
 					byte *beginning = hextext;
 
@@ -53,6 +55,7 @@ byte* flashAtmega(byte* hextext) {
 					if (c != ':') {
 						flash_state = 0;
 						hextext = nullptr;
+            Serial.println("Missing colon");
 						break;
 					}
 					// Read the byte count into 'len'
@@ -75,6 +78,7 @@ byte* flashAtmega(byte* hextext) {
 					if (lineaddr >= (pageaddr + pagesize)) {
 						hextext = beginning;
 						flash_state = 3;
+            Serial.println("Linaddr err");
 						break;
 					}
 
@@ -85,6 +89,7 @@ byte* flashAtmega(byte* hextext) {
 					if (b == 0x1) { 
 						// Err
 						flash_state = 3;
+            Serial.println("Record type error");
 						break;
 					} 
 
@@ -118,6 +123,7 @@ byte* flashAtmega(byte* hextext) {
 					}
 					if (pgm_read_byte(hextext++) != '\n') { // Err
 						flash_state = 3;
+            Serial.println("new line error");
 						break;
 					}
 					if((pagesize - page_idx) < 16)  flash_state = 3; // OK

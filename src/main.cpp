@@ -34,11 +34,11 @@ void transmitOut(char* output);
 void updateLED(void * pvParameters);
 
 void setup() {
-	//Serial.begin(115200);
+	Serial.begin(115200);
 	// Restore WiFi settings if they exist
 	EEPROM.begin(EEPROM_SIZE);
 	EEPROM.get(0, wifi_settings);
-	ATmegaSerial.begin(9600, SERIAL_8N1, 3, 1);
+	//ATmegaSerial.begin(9600, SERIAL_8N1, 3, 1);
 	//Serial.println(wifi_settings.ssid);
 	//Serial.println(wifi_settings.deviceKey);
 	//Serial.println(wifi_settings.deviceID);
@@ -108,6 +108,8 @@ void loop() {
 	}
 
 	if(flashing) {
+		Serial.println(flashIdx);
+		Serial.println(ESP.getFreeHeap());
 		flashPos = flashAtmega(flashPos);
 		if(flashPos == nullptr) {
 			Serial.println("Done");
@@ -172,6 +174,7 @@ void process_ble_recv() {
 				for(int i = 0; i < recv_buffer.length(); i++) {
 					flash[flashIdx] = recv_buffer[i];
 					flashIdx++;
+					
 				}
 				String output = "";
 				
@@ -299,7 +302,7 @@ void process_ble_recv() {
 		transmitOut("0x0DN");
 		ble_state = 4;
 	}
-	
+
 	recv_buffer = "";
 }
 
