@@ -82,8 +82,8 @@ byte* flashAtmega(byte* hextext) {
 					//b = (b<<4) + hexton(pgm_read_byte(hextext++));
 					cksum += b;
 					lineaddr = (lineaddr << 8) + b;
-        //  Serial.println(lineaddr);
-        //  Serial.println(pageaddr);
+          Serial.println(lineaddr);
+          Serial.println(pageaddr);
 					if (lineaddr >= (pageaddr + pagesize)) {
 						hextext = beginning;
 						flash_state = 3;
