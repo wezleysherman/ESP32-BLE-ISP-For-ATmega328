@@ -36,8 +36,8 @@ byte* flashAtmega(byte* hextext) {
 		case 1:
 			{
 				if (pageaddr < chipsize && hextext) {   
-          Serial.print("Page: ");
-          Serial.println(pageaddr);
+         // Serial.print("Page: ");
+        //  Serial.println(pageaddr);
 					uint16_t len;
 					byte *beginning = hextext;
 
@@ -45,10 +45,11 @@ byte* flashAtmega(byte* hextext) {
 
 					uint16_t lineaddr;
 
+          /*
 					// Strip leading whitespace
 					byte c;
 					do {
-						c = pgm_read_byte(hextext++);
+						pgm_read_byte(hextext++);
 					} while (c == ' ' || c == '\n' || c == '\t');
 
 					// read one line!
@@ -57,24 +58,32 @@ byte* flashAtmega(byte* hextext) {
 						hextext = nullptr;
             Serial.println("Missing colon");
 						break;
-					}
+					}*/
+         // byte c;
+         // do {
+          //  c = pgm_read_byte(hextext++);
+         // } while (c == ' ' || c == '\n' || c == '\t');
 					// Read the byte count into 'len'
-					len = hexton(pgm_read_byte(hextext++));
-					len = (len<<4) + hexton(pgm_read_byte(hextext++));
+          //Serial.println("Stuff: ");
+         // Serial.println(hextext, DEC);
+          //Serial.println(pgm_read_byte(hextext), DEC);
+					len = *hextext++;
+					//len = (len<<4) + hexton(pgm_read_byte(hextext++));
 					cksum = len;
 
 					// read high address byte
-					b = hexton(pgm_read_byte(hextext++));  
-					b = (b<<4) + hexton(pgm_read_byte(hextext++));
+					b = *hextext++;  
+					//b = (b<<4) + hexton(pgm_read_byte(hextext++));
 					cksum += b;
 					lineaddr = b;
 
 					// read low address byte
-					b = hexton(pgm_read_byte(hextext++)); 
-					b = (b<<4) + hexton(pgm_read_byte(hextext++));
+					b = *hextext++; 
+					//b = (b<<4) + hexton(pgm_read_byte(hextext++));
 					cksum += b;
 					lineaddr = (lineaddr << 8) + b;
-
+          Serial.println(lineaddr);
+          Serial.println(pageaddr);
 					if (lineaddr >= (pageaddr + pagesize)) {
 						hextext = beginning;
 						flash_state = 3;
@@ -82,8 +91,8 @@ byte* flashAtmega(byte* hextext) {
 						break;
 					}
 
-					b = hexton(pgm_read_byte(hextext++)); // record type 
-					b = (b<<4) + hexton(pgm_read_byte(hextext++));
+					b = *hextext++; // record type 
+				//	b = (b<<4) + hexton(pgm_read_byte(hextext++));
 					cksum += b;
 
 					if (b == 0x1) { 
@@ -94,8 +103,8 @@ byte* flashAtmega(byte* hextext) {
 					} 
 
 					for (byte i = 0; i < len; i++) {
-						b = hexton(pgm_read_byte(hextext++));
-						b = (b<<4) + hexton(pgm_read_byte(hextext++));
+						b = *hextext++;
+						//b = (b<<4) + hexton(pgm_read_byte(hextext++));
 
 						cksum += b;
 
@@ -116,16 +125,16 @@ byte* flashAtmega(byte* hextext) {
 								pageBuffer[i] = 0xFF;
 						}
 					}
-					b = hexton(pgm_read_byte(hextext++));  // chxsum
-					b = (b<<4) + hexton(pgm_read_byte(hextext++));
+					b = *hextext++;  // chxsum
+				//	b = (b<<4) + hexton(pgm_read_byte(hextext++));
 					cksum += b;
 					if (cksum != 0) { // Err
 					}
-					if (pgm_read_byte(hextext++) != '\n') { // Err
+				/*	if (pgm_read_byte(hextext++) != '\n') { // Err
 						flash_state = 3;
             Serial.println("new line error");
 						break;
-					}
+					}*/
 					if((pagesize - page_idx) < 16)  flash_state = 3; // OK
 					if (page_idx == pagesize) // OK
 						flash_state = 3;

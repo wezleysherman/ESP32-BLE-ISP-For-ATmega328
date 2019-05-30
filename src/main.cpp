@@ -38,7 +38,7 @@ void setup() {
 	// Restore WiFi settings if they exist
 	EEPROM.begin(EEPROM_SIZE);
 	EEPROM.get(0, wifi_settings);
-	//ATmegaSerial.begin(9600, SERIAL_8N1, 3, 1);
+	ATmegaSerial.begin(9600, SERIAL_8N1, 3, 1);
 	//Serial.println(wifi_settings.ssid);
 	//Serial.println(wifi_settings.deviceKey);
 	//Serial.println(wifi_settings.deviceID);
@@ -171,11 +171,12 @@ void process_ble_recv() {
 	switch(ble_state) {
 		case 1:			// Flash
 			if(recv_buffer.substring(recv_buffer.length()-5, recv_buffer.length()).equals("0x0FC")) {
-				for(int i = 0; i < recv_buffer.length(); i++) {
+				Serial.println(recv_buffer);
+				/*for(int i = 0; i < recv_buffer.length(); i++) {
 					flash[flashIdx] = recv_buffer[i];
 					flashIdx++;
 					
-				}
+				}*/
 				String output = "";
 				
 				flashPos = flash;
@@ -184,10 +185,11 @@ void process_ble_recv() {
 				flashing = true;
 				ble_state = 0;
 			} else {
-				for(int i = 0; i < recv_buffer.length(); i++) {
+				//Serial.println(recv_buffer);
+				/*for(int i = 0; i < recv_buffer.length(); i++) {
 					flash[flashIdx] = recv_buffer[i];
 					flashIdx++;
-				}
+				}*/
 				if(flashIdx > 32000) {
 					flashIdx = 0;
 					memset(flash, 0xFF, sizeof flash);
@@ -419,6 +421,12 @@ void ReceiveCallBack::onWrite(BLECharacteristic *pCharacteristic) {
 		for(int i = 0; i < rxVal.length(); i++) {
 			if(i % 2 == 0) {
 				recv_buffer += rxVal[i];
+			}
+			if(ble_state == 1) {
+				uint8_t outChar = rxVal[i];
+				flash[flashIdx] = outChar;
+				flashIdx++;
+			//	Serial.println(outChar, DEC);
 			}
 		}
 	}

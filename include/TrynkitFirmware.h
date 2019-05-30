@@ -22,7 +22,7 @@ String trynkitURL = "https://trynkit.us";
 String debugURL = "http://192.168.0.19:8000";
 
 const esp_partition_t* PART;
-byte flash[32768];
+uint8_t flash[32768];
 String serialBuff;
 int flashIdx = 0;
 bool wifiConnected = false;
