@@ -34,6 +34,8 @@ void transmitOut(char* output);
 void updateLED(void * pvParameters);
 
 void setup() {
+	digitalWrite(14, HIGH);  // reset it right away.
+  	pinMode(14, OUTPUT);
 	Serial.begin(115200);
 	// Restore WiFi settings if they exist
 	EEPROM.begin(EEPROM_SIZE);

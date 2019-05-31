@@ -163,6 +163,8 @@ byte* flashAtmega(byte* hextext) {
 				target_poweroff();
 				flash_state = 0;
 				hextext = nullptr;
+        digitalWrite(RESET, HIGH);  // reset it right away.
+        pinMode(RESET, OUTPUT);
 			}
 			break;
 	}
@@ -549,6 +551,8 @@ boolean target_poweroff()
 {
   end_pmode();
   digitalWrite(LED_PROGMODE, LOW);
+  digitalWrite(RESET, HIGH);  // reset it right away.
+  pinMode(RESET, OUTPUT);
   return true;
 }
 
