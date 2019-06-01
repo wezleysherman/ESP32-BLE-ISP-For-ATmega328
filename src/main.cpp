@@ -16,6 +16,7 @@
 #include <Wire.h>
 #include "ECC508.h"
 #include "esp32-hal-cpu.h"
+#include "config.h"
 
 void process_ble_recv();
 void IRAM_ATTR watchdog_reset();
@@ -40,7 +41,12 @@ void setup() {
 	// Restore WiFi settings if they exist
 	EEPROM.begin(EEPROM_SIZE);
 	EEPROM.get(0, wifi_settings);
-	ATmegaSerial.begin(9600, SERIAL_8N1, 3, 1);
+	EEPROM.get(sizeof(wifi_settings), husky_settings);
+	if(husky_settings.firmware_version == -1) 
+		husky_settings = config_defaults;
+	EEPROM.put(sizeof(wifi_settings), husky_settings);
+	EEPROM.commit();
+	//ATmegaSerial.begin(9600, SERIAL_8N1, 3, 1);
 	//Serial.println(wifi_settings.ssid);
 	//Serial.println(wifi_settings.deviceKey);
 	//Serial.println(wifi_settings.deviceID);
@@ -110,8 +116,6 @@ void loop() {
 	}
 
 	if(flashing) {
-		Serial.println(flashIdx);
-		Serial.println(ESP.getFreeHeap());
 		flashPos = flashAtmega(flashPos);
 		if(flashPos == nullptr) {
 			Serial.println("Done");
@@ -305,8 +309,24 @@ void process_ble_recv() {
 	} else if(recv_buffer.equals("0x0FW")) {
 		transmitOut("0x0DN");
 		ble_state = 4;
+	} else if(recv_buffer.equals("0x0LI")) {
+		String device_info = "{\"volt\":";
+		analogRead(35);
+		int val = analogRead(35);
+		device_info += String(val);
+		device_info +=",\"ver\":";
+		device_info += String(husky_settings.firmware_version);
+		device_info += ",\"lpto\":";
+		device_info += String(husky_settings.low_power_timeout);
+		device_info += ",\"lpcu\":";
+		device_info += String(husky_settings.low_power_check);
+		device_info += "}";
+		byte output[device_info.length()];
+		for(int i = 0; i < device_info.length(); i++)
+			output[i] = device_info[i];
+		pTxCharacteristic->setValue(output, sizeof(output));
+		pTxCharacteristic->notify();
 	}
-
 	recv_buffer = "";
 }
 

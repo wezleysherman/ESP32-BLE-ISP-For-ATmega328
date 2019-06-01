@@ -49,19 +49,6 @@ String serialNum = "";
 void IRAM_ATTR deep_sleep();
 void IRAM_ATTR watchdog_reset();
 
-// Structs
-typedef struct wifi_settings {
-  bool saved = true;
-  char ssid[128];
-  char password[128];
-  char deviceID[128];
-  char deviceName[128];
-  char deviceKey[15];
-  char buff[5];
-} WIFI;
-
-WIFI wifi_settings;
-
 // Method defines
 void initBLE();
 void reset();
