@@ -33,6 +33,9 @@ void writeSerial(String serialOut);
 void onWrite(BLECharacteristic *pCharacteristic);
 void transmitOut(char* output);
 void updateLED(void * pvParameters);
+void IRAM_ATTR enter_sleep();
+
+#define uS_TO_S_FACTOR 1000000  /* Conversion factor for micro seconds to seconds */
 
 void setup() {
 	digitalWrite(14, HIGH);  // reset it right away.
@@ -46,7 +49,11 @@ void setup() {
 		husky_settings = config_defaults;
 	EEPROM.put(sizeof(wifi_settings), husky_settings);
 	EEPROM.commit();
+	Serial.println("lo:");
+	Serial.println(husky_settings.low_power_timeout);
+
 	//ATmegaSerial.begin(9600, SERIAL_8N1, 3, 1);
+	
 	//Serial.println(wifi_settings.ssid);
 	//Serial.println(wifi_settings.deviceKey);
 	//Serial.println(wifi_settings.deviceID);
@@ -58,6 +65,7 @@ void setup() {
 
 	// Set WiFi OTA Timer after everything else has been initialized
 	updateTimer = millis();
+	sleepTimer = millis();
 	WiFi.mode(WIFI_STA);
 	TaskHandle_t LEDTask;
 	xTaskCreatePinnedToCore(updateLED, "LEDTask", 10000, NULL, 1, &LEDTask, 0);
@@ -70,10 +78,7 @@ void setup() {
 	timerAlarmWrite(wdt, watchdog_timeout * 1000, false);
 	timerAlarmEnable(wdt);
 
-	Serial.println(getCpuFrequencyMhz());
 	setCpuFrequencyMhz(80);
-	Serial.println(getCpuFrequencyMhz());
-	//
 	//
 	Wire.begin();
 	serialNum = getSerial();
@@ -106,12 +111,14 @@ void loop() {
 
 	if(!device_connected && old_device_connected) { // Disconnecting
 		Serial.println("Disconnecting");
+		//timerAlarmEnable(deep_sleep);
     	esp_restart(); // Reset ESP32 to clear RAM -- on BLE disconnect
 	} 
 
 	if(device_connected && !old_device_connected) { // Connecting
 		Serial.println("Connecting");
 		setCpuFrequencyMhz(240);
+		//timerAlarmDisable(deep_sleep);
 		old_device_connected = device_connected;
 	}
 
@@ -170,6 +177,11 @@ void loop() {
           WiFi.begin(wifi_settings.ssid, wifi_settings.password);
         }
     }
+
+    if(husky_settings.low_power_timeout != 0 && millis() - sleepTimer >= (60000 * husky_settings.low_power_timeout)) {
+		sleepTimer = millis();
+		enter_sleep();
+	}
 }
 
 // BLE FSM?
@@ -289,6 +301,26 @@ void process_ble_recv() {
 			}
 		}
 		break;
+		case 5:
+		{
+			settings_data += recv_buffer;
+			if(settings_data.substring(settings_data.length()-5, settings_data.length()).equals("0x0FC")) {
+				settings_data = settings_data.substring(0, settings_data.length()-5);
+				int idx = settings_data.indexOf('-');
+				String data_first = settings_data.substring(0, idx);
+				String data_second = settings_data.substring(idx);
+				Serial.println("Setting lo-po");
+				Serial.println((unsigned char)data_first.toInt());
+				Serial.println((unsigned char)data_second.toInt());
+				Serial.println(settings_data);
+				husky_settings.low_power_timeout = (unsigned char)data_first.toInt();
+				husky_settings.low_power_check = (unsigned char)data_second.toInt();
+				EEPROM.put(sizeof(wifi_settings), husky_settings);
+				EEPROM.commit();
+				ble_state = 0;
+			}
+		}
+		break;
 	}
 
 	if(recv_buffer.equals("0x0FA")) {
@@ -326,6 +358,9 @@ void process_ble_recv() {
 			output[i] = device_info[i];
 		pTxCharacteristic->setValue(output, sizeof(output));
 		pTxCharacteristic->notify();
+	} else if(recv_buffer.equals("0x0LP")) {
+		transmitOut("0x0LP");
+		ble_state = 5;
 	}
 	recv_buffer = "";
 }
@@ -333,6 +368,16 @@ void process_ble_recv() {
 // Watchdog Interrupt
 void IRAM_ATTR watchdog_reset() {
   esp_restart();
+}
+
+void enter_sleep() {
+	if(!device_connected) {
+		if(husky_settings.low_power_check != 0) {
+			int sleep_time = 60 * husky_settings.low_power_check;
+			esp_sleep_enable_timer_wakeup(sleep_time * uS_TO_S_FACTOR);
+		}
+  		esp_deep_sleep_start(); 
+  	}
 }
 
 // Methods
