@@ -17,6 +17,7 @@
 #include "ECC508.h"
 #include "esp32-hal-cpu.h"
 #include "config.h"
+#include "SPI.h"
 
 void process_ble_recv();
 void IRAM_ATTR watchdog_reset();
@@ -82,7 +83,31 @@ void setup() {
 	//
 	Wire.begin();
 	serialNum = getSerial();
-	//Serial.println("Rip: ");
+
+	//
+
+	SPISettings fuses_spisettings = SPISettings(100000, MSBFIRST, SPI_MODE0);
+	delay(500);
+	target_poweron();
+	
+	Serial.println("----");
+	uint16_t eeprom = 0;
+	while (eeprom < 1023) {
+		SPI.beginTransaction(fuses_spisettings); 
+		timerWrite(wdt, 0);
+		byte r;
+	  	r = (spi_transaction(0xA0, eeprom>>9, eeprom/2, 0) & 0xFF);
+		eeprom++;
+		if(r != 255) {
+			Serial.println(r, HEX);
+		}
+		SPI.endTransaction();
+	}
+
+	target_poweroff();
+ 	digitalWrite(RESET, HIGH);  // reset it right away.
+    pinMode(RESET, OUTPUT);
+	Serial.println("Rip: ");
 	//Serial.println(serialNum);
 }
 
