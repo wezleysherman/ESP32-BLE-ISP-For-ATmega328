@@ -53,7 +53,7 @@ void setup() {
 	Serial.println("lo:");
 	Serial.println(husky_settings.low_power_timeout);
 
-	//ATmegaSerial.begin(9600, SERIAL_8N1, 3, 1);
+	ATmegaSerial.begin(9600, SERIAL_8N1, 3, 1);
 	
 	//Serial.println(wifi_settings.ssid);
 	//Serial.println(wifi_settings.deviceKey);
@@ -84,30 +84,6 @@ void setup() {
 	Wire.begin();
 	serialNum = getSerial();
 
-	//
-
-	SPISettings fuses_spisettings = SPISettings(100000, MSBFIRST, SPI_MODE0);
-	delay(500);
-	target_poweron();
-	
-	Serial.println("----");
-	uint16_t eeprom = 0;
-	while (eeprom < 1023) {
-		SPI.beginTransaction(fuses_spisettings); 
-		timerWrite(wdt, 0);
-		byte r;
-	  	r = (spi_transaction(0xA0, eeprom>>9, eeprom/2, 0) & 0xFF);
-		eeprom++;
-		if(r != 255) {
-			Serial.println(r, HEX);
-		}
-		SPI.endTransaction();
-	}
-
-	target_poweroff();
- 	digitalWrite(RESET, HIGH);  // reset it right away.
-    pinMode(RESET, OUTPUT);
-	Serial.println("Rip: ");
 	//Serial.println(serialNum);
 }
 
@@ -346,6 +322,48 @@ void process_ble_recv() {
 			}
 		}
 		break;
+		case 6:
+		{
+			String out_json = "{\"eeprom\":\"";
+			SPISettings fuses_spisettings = SPISettings(100000, MSBFIRST, SPI_MODE0);
+			delay(500);
+			target_poweron();
+
+			uint16_t eeprom = 0;
+			while (eeprom < 1023) {
+				SPI.beginTransaction(fuses_spisettings); 
+				timerWrite(wdt, 0);
+				byte r;
+				r = (spi_transaction(0xA0, eeprom >> 9, eeprom, 0) & 0xFF);
+				eeprom += 1;
+				out_json += r;
+				out_json += ' ';
+				SPI.endTransaction();
+			}
+			
+			out_json += "\"};";
+			int pos = 0;
+			unsigned char buff_size = 200;
+			while(pos < out_json.length()) {
+				timerWrite(wdt, 0);
+				if(buff_size > (out_json.length() - pos)) {
+					buff_size = (out_json.length() - pos);
+				}
+				byte output [buff_size];
+				for(int i = 0; i < buff_size; i++) {
+					output[i] = out_json[pos];
+					pos ++;
+				}
+				pTxCharacteristic->setValue(output, sizeof(output));
+				pTxCharacteristic->notify();
+			}
+			ble_state = 0;
+			delay(100);
+			target_poweroff();
+			digitalWrite(RESET, HIGH);  // reset it right away.
+			pinMode(RESET, OUTPUT);
+		}
+		break;
 	}
 
 	if(recv_buffer.equals("0x0FA")) {
@@ -386,6 +404,9 @@ void process_ble_recv() {
 	} else if(recv_buffer.equals("0x0LP")) {
 		transmitOut("0x0LP");
 		ble_state = 5;
+	} else if(recv_buffer.equals("0x0EE")) {
+		transmitOut("0x0EE");
+		ble_state = 6;
 	}
 	recv_buffer = "";
 }
