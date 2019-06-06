@@ -334,7 +334,7 @@ void process_ble_recv() {
 				SPI.beginTransaction(fuses_spisettings); 
 				timerWrite(wdt, 0);
 				byte r;
-				r = (spi_transaction(0xA0, eeprom >> 9, eeprom, 0) & 0xFF);
+				r = (spi_transaction(0xA0, eeprom >> 8, eeprom, 0) & 0xFF);
 				eeprom += 1;
 				out_json += r;
 				out_json += ' ';
@@ -342,6 +342,7 @@ void process_ble_recv() {
 			}
 			
 			out_json += "\"};";
+			//Serial.println(out_json);
 			int pos = 0;
 			unsigned char buff_size = 200;
 			while(pos < out_json.length()) {
