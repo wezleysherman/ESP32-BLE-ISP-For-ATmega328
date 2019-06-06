@@ -53,7 +53,7 @@ void setup() {
 	Serial.println("lo:");
 	Serial.println(husky_settings.low_power_timeout);
 
-	ATmegaSerial.begin(9600, SERIAL_8N1, 3, 1);
+//	ATmegaSerial.begin(9600, SERIAL_8N1, 3, 1);
 	
 	//Serial.println(wifi_settings.ssid);
 	//Serial.println(wifi_settings.deviceKey);
@@ -196,8 +196,14 @@ void process_ble_recv() {
 					flashIdx++;
 					
 				}*/
+				for(int i = 0; i < 5; i++)
+					flash[flashIdx--] = 0xFF;
+
 				String output = "";
-				
+				//for(int i = 0; i < recv_buffer.length(); i++) {
+				//	output += flash[i];
+			//	}
+				//Serial.println(output);
 				flashPos = flash;
 
 				transmitOut("0x0FC");
