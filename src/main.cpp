@@ -53,7 +53,7 @@ void setup() {
 	Serial.println("lo:");
 	Serial.println(husky_settings.low_power_timeout);
 
-//	ATmegaSerial.begin(9600, SERIAL_8N1, 3, 1);
+	ATmegaSerial.begin(9600, SERIAL_8N1, 3, 1);
 	
 	//Serial.println(wifi_settings.ssid);
 	//Serial.println(wifi_settings.deviceKey);
@@ -134,7 +134,7 @@ void loop() {
 	}
 
 	// Update USART
-	if(device_connected && !flashing && ble_state == 0 && !receiving && !transmit && (ATmegaSerial.available() > 0 || bufferCounter > 0)) {
+	if(device_connected && !flashing && ble_state == 0 && !receiving && !transmit && (ATmegaSerial.available() > 0 || bufferCounter > 0 || serial_counter > 0)) {
 
 		if(bufferCounter < 5) {
 			char* usart_out = "0xUT ";
@@ -147,12 +147,12 @@ void loop() {
 		if (ATmegaSerial.available() > 0) {
 			uint8_t serialByte = ATmegaSerial.read();
 			usart_buffer[bufferCounter] = serialByte;
-
+			serial_counter = 0;
 			if(serialByte != NULL)
 				bufferCounter ++;
 		}
 
-		if (bufferCounter > 255 || (ATmegaSerial.available() == 0 && bufferCounter > 5)) {
+		if (bufferCounter > 255 || (ATmegaSerial.available() == 0 && serial_counter > 120 && bufferCounter > 4)) {
 			uint8_t output_buffer[bufferCounter];
 			for(int i = 0; i < bufferCounter; i++) {
 				output_buffer[i] = usart_buffer[i];
@@ -161,6 +161,9 @@ void loop() {
 			pTxCharacteristic->notify();
 			bufferCounter = 0;
 			memset(output_buffer, 0xFF, sizeof output_buffer);
+			serial_counter = 0;
+		} else {
+			serial_counter ++;
 		}
 	}
 

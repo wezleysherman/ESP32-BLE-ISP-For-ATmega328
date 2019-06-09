@@ -45,6 +45,7 @@ String wifi_data = "";
 String settings_data = "";
 unsigned char wifi_state = 0;
 String serialNum = "";
+unsigned char serial_counter = 0;
 
 void IRAM_ATTR enter_sleep();
 void IRAM_ATTR watchdog_reset();
