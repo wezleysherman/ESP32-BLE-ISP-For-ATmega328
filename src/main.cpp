@@ -39,9 +39,7 @@ void IRAM_ATTR enter_sleep();
 #define uS_TO_S_FACTOR 1000000  /* Conversion factor for micro seconds to seconds */
 
 void setup() {
-	digitalWrite(14, HIGH);  // reset it right away.
-  	pinMode(14, OUTPUT);
-	Serial.begin(115200);
+//	Serial.begin(115200);
 	// Restore WiFi settings if they exist
 	EEPROM.begin(EEPROM_SIZE);
 	EEPROM.get(0, wifi_settings);
@@ -83,7 +81,8 @@ void setup() {
 	//
 	Wire.begin();
 	serialNum = getSerial();
-
+	digitalWrite(14, HIGH);  // reset it right away.
+  	pinMode(14, OUTPUT);
 	//Serial.println(serialNum);
 }
 
@@ -113,7 +112,7 @@ void loop() {
 	if(!device_connected && old_device_connected) { // Disconnecting
 		Serial.println("Disconnecting");
 		//timerAlarmEnable(deep_sleep);
-    	esp_restart(); // Reset ESP32 to clear RAM -- on BLE disconnect
+    	ESP.restart(); // Reset ESP32 to clear RAM -- on BLE disconnect
 	} 
 
 	if(device_connected && !old_device_connected) { // Connecting
@@ -423,7 +422,7 @@ void process_ble_recv() {
 
 // Watchdog Interrupt
 void IRAM_ATTR watchdog_reset() {
-  esp_restart();
+	ESP.restart();
 }
 
 void enter_sleep() {
