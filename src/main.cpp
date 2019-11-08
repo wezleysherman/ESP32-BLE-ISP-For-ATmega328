@@ -16,6 +16,8 @@
 #include <Wire.h>
 #include "ECC508.h"
 #include "esp32-hal-cpu.h"
+#include "config.h"
+#include "SPI.h"
 
 void process_ble_recv();
 void IRAM_ATTR watchdog_reset();
@@ -32,13 +34,25 @@ void writeSerial(String serialOut);
 void onWrite(BLECharacteristic *pCharacteristic);
 void transmitOut(char* output);
 void updateLED(void * pvParameters);
+void IRAM_ATTR enter_sleep();
+
+#define uS_TO_S_FACTOR 1000000  /* Conversion factor for micro seconds to seconds */
 
 void setup() {
-	Serial.begin(115200);
+//	Serial.begin(115200);
 	// Restore WiFi settings if they exist
 	EEPROM.begin(EEPROM_SIZE);
 	EEPROM.get(0, wifi_settings);
+	EEPROM.get(sizeof(wifi_settings), husky_settings);
+	if(husky_settings.firmware_version == -1) 
+		husky_settings = config_defaults;
+	EEPROM.put(sizeof(wifi_settings), husky_settings);
+	EEPROM.commit();
+	Serial.println("lo:");
+	Serial.println(husky_settings.low_power_timeout);
+
 	ATmegaSerial.begin(9600, SERIAL_8N1, 3, 1);
+	
 	//Serial.println(wifi_settings.ssid);
 	//Serial.println(wifi_settings.deviceKey);
 	//Serial.println(wifi_settings.deviceID);
@@ -50,6 +64,7 @@ void setup() {
 
 	// Set WiFi OTA Timer after everything else has been initialized
 	updateTimer = millis();
+	sleepTimer = millis();
 	WiFi.mode(WIFI_STA);
 	TaskHandle_t LEDTask;
 	xTaskCreatePinnedToCore(updateLED, "LEDTask", 10000, NULL, 1, &LEDTask, 0);
@@ -62,14 +77,12 @@ void setup() {
 	timerAlarmWrite(wdt, watchdog_timeout * 1000, false);
 	timerAlarmEnable(wdt);
 
-	Serial.println(getCpuFrequencyMhz());
 	setCpuFrequencyMhz(80);
-	Serial.println(getCpuFrequencyMhz());
-	//
 	//
 	Wire.begin();
 	serialNum = getSerial();
-	//Serial.println("Rip: ");
+	digitalWrite(14, HIGH);  // reset it right away.
+  	pinMode(14, OUTPUT);
 	//Serial.println(serialNum);
 }
 
@@ -98,18 +111,18 @@ void loop() {
 
 	if(!device_connected && old_device_connected) { // Disconnecting
 		Serial.println("Disconnecting");
-    	esp_restart(); // Reset ESP32 to clear RAM -- on BLE disconnect
+		//timerAlarmEnable(deep_sleep);
+    	ESP.restart(); // Reset ESP32 to clear RAM -- on BLE disconnect
 	} 
 
 	if(device_connected && !old_device_connected) { // Connecting
 		Serial.println("Connecting");
 		setCpuFrequencyMhz(240);
+		//timerAlarmDisable(deep_sleep);
 		old_device_connected = device_connected;
 	}
 
 	if(flashing) {
-		Serial.println(flashIdx);
-		Serial.println(ESP.getFreeHeap());
 		flashPos = flashAtmega(flashPos);
 		if(flashPos == nullptr) {
 			Serial.println("Done");
@@ -120,7 +133,7 @@ void loop() {
 	}
 
 	// Update USART
-	if(device_connected && !flashing && ble_state == 0 && !receiving && !transmit && (ATmegaSerial.available() > 0 || bufferCounter > 0)) {
+	if(device_connected && !flashing && ble_state == 0 && !receiving && !transmit && (ATmegaSerial.available() > 0 || bufferCounter > 0 || serial_counter > 0)) {
 
 		if(bufferCounter < 5) {
 			char* usart_out = "0xUT ";
@@ -133,12 +146,12 @@ void loop() {
 		if (ATmegaSerial.available() > 0) {
 			uint8_t serialByte = ATmegaSerial.read();
 			usart_buffer[bufferCounter] = serialByte;
-
+			serial_counter = 0;
 			if(serialByte != NULL)
 				bufferCounter ++;
 		}
 
-		if (bufferCounter > 255 || (ATmegaSerial.available() == 0 && bufferCounter > 5)) {
+		if (bufferCounter > 255 || (ATmegaSerial.available() == 0 && serial_counter > 120 && bufferCounter > 4)) {
 			uint8_t output_buffer[bufferCounter];
 			for(int i = 0; i < bufferCounter; i++) {
 				output_buffer[i] = usart_buffer[i];
@@ -147,6 +160,9 @@ void loop() {
 			pTxCharacteristic->notify();
 			bufferCounter = 0;
 			memset(output_buffer, 0xFF, sizeof output_buffer);
+			serial_counter = 0;
+		} else {
+			serial_counter ++;
 		}
 	}
 
@@ -164,6 +180,11 @@ void loop() {
           WiFi.begin(wifi_settings.ssid, wifi_settings.password);
         }
     }
+
+    if(husky_settings.low_power_timeout != 0 && millis() - sleepTimer >= (60000 * husky_settings.low_power_timeout)) {
+		sleepTimer = millis();
+		enter_sleep();
+	}
 }
 
 // BLE FSM?
@@ -177,8 +198,14 @@ void process_ble_recv() {
 					flashIdx++;
 					
 				}*/
+				for(int i = 0; i < 5; i++)
+					flash[flashIdx--] = 0xFF;
+
 				String output = "";
-				
+				//for(int i = 0; i < recv_buffer.length(); i++) {
+				//	output += flash[i];
+			//	}
+				//Serial.println(output);
 				flashPos = flash;
 
 				transmitOut("0x0FC");
@@ -283,6 +310,69 @@ void process_ble_recv() {
 			}
 		}
 		break;
+		case 5:
+		{
+			settings_data += recv_buffer;
+			if(settings_data.substring(settings_data.length()-5, settings_data.length()).equals("0x0FC")) {
+				settings_data = settings_data.substring(0, settings_data.length()-5);
+				int idx = settings_data.indexOf('-');
+				String data_first = settings_data.substring(0, idx);
+				String data_second = settings_data.substring(idx);
+				Serial.println("Setting lo-po");
+				Serial.println((unsigned char)data_first.toInt());
+				Serial.println((unsigned char)data_second.toInt());
+				Serial.println(settings_data);
+				husky_settings.low_power_timeout = (unsigned char)data_first.toInt();
+				husky_settings.low_power_check = (unsigned char)data_second.toInt();
+				EEPROM.put(sizeof(wifi_settings), husky_settings);
+				EEPROM.commit();
+				ble_state = 0;
+			}
+		}
+		break;
+		case 6:
+		{
+			String out_json = "{\"eeprom\":\"";
+			SPISettings fuses_spisettings = SPISettings(100000, MSBFIRST, SPI_MODE0);
+			delay(500);
+			target_poweron();
+
+			uint16_t eeprom = 0;
+			while (eeprom < 1023) {
+				SPI.beginTransaction(fuses_spisettings); 
+				timerWrite(wdt, 0);
+				byte r;
+				r = (spi_transaction(0xA0, eeprom >> 8, eeprom, 0) & 0xFF);
+				eeprom += 1;
+				out_json += r;
+				out_json += ' ';
+				SPI.endTransaction();
+			}
+			
+			out_json += "\"};";
+			//Serial.println(out_json);
+			int pos = 0;
+			unsigned char buff_size = 200;
+			while(pos < out_json.length()) {
+				timerWrite(wdt, 0);
+				if(buff_size > (out_json.length() - pos)) {
+					buff_size = (out_json.length() - pos);
+				}
+				byte output [buff_size];
+				for(int i = 0; i < buff_size; i++) {
+					output[i] = out_json[pos];
+					pos ++;
+				}
+				pTxCharacteristic->setValue(output, sizeof(output));
+				pTxCharacteristic->notify();
+			}
+			ble_state = 0;
+			delay(100);
+			target_poweroff();
+			digitalWrite(RESET, HIGH);  // reset it right away.
+			pinMode(RESET, OUTPUT);
+		}
+		break;
 	}
 
 	if(recv_buffer.equals("0x0FA")) {
@@ -303,14 +393,46 @@ void process_ble_recv() {
 	} else if(recv_buffer.equals("0x0FW")) {
 		transmitOut("0x0DN");
 		ble_state = 4;
+	} else if(recv_buffer.equals("0x0LI")) {
+		String device_info = "{\"volt\":";
+		analogRead(35);
+		int val = analogRead(35);
+		device_info += String(val);
+		device_info +=",\"ver\":";
+		device_info += String(husky_settings.firmware_version);
+		device_info += ",\"lpto\":";
+		device_info += String(husky_settings.low_power_timeout);
+		device_info += ",\"lpcu\":";
+		device_info += String(husky_settings.low_power_check);
+		device_info += "}";
+		byte output[device_info.length()];
+		for(int i = 0; i < device_info.length(); i++)
+			output[i] = device_info[i];
+		pTxCharacteristic->setValue(output, sizeof(output));
+		pTxCharacteristic->notify();
+	} else if(recv_buffer.equals("0x0LP")) {
+		transmitOut("0x0LP");
+		ble_state = 5;
+	} else if(recv_buffer.equals("0x0EE")) {
+		transmitOut("0x0EE");
+		ble_state = 6;
 	}
-
 	recv_buffer = "";
 }
 
 // Watchdog Interrupt
 void IRAM_ATTR watchdog_reset() {
-  esp_restart();
+	ESP.restart();
+}
+
+void enter_sleep() {
+	if(!device_connected) {
+		if(husky_settings.low_power_check != 0) {
+			int sleep_time = 60 * husky_settings.low_power_check;
+			esp_sleep_enable_timer_wakeup(sleep_time * uS_TO_S_FACTOR);
+		}
+  		esp_deep_sleep_start(); 
+  	}
 }
 
 // Methods

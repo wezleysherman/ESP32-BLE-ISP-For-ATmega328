@@ -98,6 +98,8 @@ byte* flashAtmega(byte* hextext) {
 					if (b == 0x1) { 
 						// Err
 						flash_state = 3;
+            Serial.println(*hextext);
+            Serial.println(b);
             Serial.println("Record type error");
 						break;
 					} 
@@ -135,10 +137,16 @@ byte* flashAtmega(byte* hextext) {
             Serial.println("new line error");
 						break;
 					}*/
-					if((pagesize - page_idx) < 16)  flash_state = 3; // OK
-					if (page_idx == pagesize) // OK
-						flash_state = 3;
+				//	if((pagesize - page_idx) < 16) {
+          //  Serial.println("page size");
+          //  flash_state = 3; // OK
+         // }
+					if (page_idx == pagesize) {// OK
+					   Serial.println("page_idx");
+          	flash_state = 3;
+          }
 				} else {
+          Serial.println("No more");
 					flash_state = 3;
 				}	
 			}
@@ -163,6 +171,8 @@ byte* flashAtmega(byte* hextext) {
 				target_poweroff();
 				flash_state = 0;
 				hextext = nullptr;
+        digitalWrite(RESET, HIGH);  // reset it right away.
+        pinMode(RESET, OUTPUT);
 			}
 			break;
 	}
@@ -549,6 +559,8 @@ boolean target_poweroff()
 {
   end_pmode();
   digitalWrite(LED_PROGMODE, LOW);
+  digitalWrite(RESET, HIGH);  // reset it right away.
+  pinMode(RESET, OUTPUT);
   return true;
 }
 

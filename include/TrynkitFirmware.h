@@ -12,7 +12,7 @@
 
 // Global Variables
 unsigned long updateTimer; // WiFi OTA Timer 
-
+unsigned long sleepTimer;
 BLEServer *pServer = NULL;
 BLECharacteristic * pTxCharacteristic;
 HTTPClient http;
@@ -30,7 +30,6 @@ bool setConnect = false;
 // New
 const int watchdog_timeout = 5000;
 hw_timer_t *wdt = NULL;
-hw_timer_t *deepsleep = NULL;
 String recv_buffer = "";
 unsigned char ble_state = 0;
 bool old_device_connected = false;
@@ -43,24 +42,13 @@ bool receiving = false;
 uint8_t usart_buffer[256];
 int bufferCounter = 0;
 String wifi_data = "";
+String settings_data = "";
 unsigned char wifi_state = 0;
 String serialNum = "";
+unsigned char serial_counter = 0;
 
-void IRAM_ATTR deep_sleep();
+void IRAM_ATTR enter_sleep();
 void IRAM_ATTR watchdog_reset();
-
-// Structs
-typedef struct wifi_settings {
-  bool saved = true;
-  char ssid[128];
-  char password[128];
-  char deviceID[128];
-  char deviceName[128];
-  char deviceKey[15];
-  char buff[5];
-} WIFI;
-
-WIFI wifi_settings;
 
 // Method defines
 void initBLE();

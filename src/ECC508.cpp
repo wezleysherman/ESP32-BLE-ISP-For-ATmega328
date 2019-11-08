@@ -10,7 +10,7 @@ uint16_t crc16(const uint8_t data[], size_t length)
 
   uint16_t crc = 0;
 
-  while (length) {
+  while (length) { 
     byte b = *data;
 
     for (uint8_t shift = 0x01; shift > 0x00; shift <<= 1) {
