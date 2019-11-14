@@ -48,17 +48,9 @@ void setup() {
 		husky_settings = config_defaults;
 	EEPROM.put(sizeof(wifi_settings), husky_settings);
 	EEPROM.commit();
-	Serial.println("lo:");
-	Serial.println(husky_settings.low_power_timeout);
-
+	
 	ATmegaSerial.begin(9600, SERIAL_8N1, 3, 1);
 	
-	//Serial.println(wifi_settings.ssid);
-	//Serial.println(wifi_settings.deviceKey);
-	//Serial.println(wifi_settings.deviceID);
-	//Serial.println(wifi_settings.saved);
-	//Serial.println(wifi_settings.password);
-//
 	ledcSetup(0, 5000, 8);
 	ledcAttachPin(12, 0);
 
@@ -83,7 +75,6 @@ void setup() {
 	serialNum = getSerial();
 	digitalWrite(14, HIGH);  // reset it right away.
   	pinMode(14, OUTPUT);
-	//Serial.println(serialNum);
 }
 
 void loop() {
@@ -193,30 +184,16 @@ void process_ble_recv() {
 		case 1:			// Flash
 			if(recv_buffer.substring(recv_buffer.length()-5, recv_buffer.length()).equals("0x0FC")) {
 				Serial.println(recv_buffer);
-				/*for(int i = 0; i < recv_buffer.length(); i++) {
-					flash[flashIdx] = recv_buffer[i];
-					flashIdx++;
-					
-				}*/
 				for(int i = 0; i < 5; i++)
 					flash[flashIdx--] = 0xFF;
 
 				String output = "";
-				//for(int i = 0; i < recv_buffer.length(); i++) {
-				//	output += flash[i];
-			//	}
-				//Serial.println(output);
 				flashPos = flash;
 
 				transmitOut("0x0FC");
 				flashing = true;
 				ble_state = 0;
 			} else {
-				//Serial.println(recv_buffer);
-				/*for(int i = 0; i < recv_buffer.length(); i++) {
-					flash[flashIdx] = recv_buffer[i];
-					flashIdx++;
-				}*/
 				if(flashIdx > 32000) {
 					flashIdx = 0;
 					memset(flash, 0xFF, sizeof flash);
@@ -375,6 +352,33 @@ void process_ble_recv() {
 		break;
 	}
 
+	DynamicJsonBuffer JSONBuffer;                         //Memory pool
+	JsonObject& parsed = JSONBuffer.parseObject(recv_buffer); 
+	String cmd = parsed["cmd"];
+	
+	if(cmd == "0x0LI") {
+		String device_info = "{\"volt\":";
+		analogRead(35);
+		int val = analogRead(35);
+		device_info += String(val);
+		device_info +=",\"ver\":";
+		device_info += String(husky_settings.firmware_version);
+		device_info += ",\"lpto\":";
+		device_info += String(husky_settings.low_power_timeout);
+		device_info += ",\"lpcu\":";
+		device_info += String(husky_settings.low_power_check);
+		device_info += ",\"serial\":\"";
+		device_info += String(serialNum);
+		device_info += "\"}";
+		
+		byte output[device_info.length()];
+		for(int i = 0; i < device_info.length(); i++)
+			output[i] = device_info[i];
+		pTxCharacteristic->setValue(output, sizeof(output));
+		pTxCharacteristic->notify();
+	}
+
+    /*
 	if(recv_buffer.equals("0x0FA")) {
 		transmitOut("0x0FB");
 		ble_state = 1;
@@ -404,7 +408,9 @@ void process_ble_recv() {
 		device_info += String(husky_settings.low_power_timeout);
 		device_info += ",\"lpcu\":";
 		device_info += String(husky_settings.low_power_check);
-		device_info += "}";
+		device_info += ",\"serial\":\"";
+		device_info += String(serialNum);
+		device_info += "\"}";
 		byte output[device_info.length()];
 		for(int i = 0; i < device_info.length(); i++)
 			output[i] = device_info[i];
@@ -416,7 +422,7 @@ void process_ble_recv() {
 	} else if(recv_buffer.equals("0x0EE")) {
 		transmitOut("0x0EE");
 		ble_state = 6;
-	}
+	}*/
 	recv_buffer = "";
 }
 
