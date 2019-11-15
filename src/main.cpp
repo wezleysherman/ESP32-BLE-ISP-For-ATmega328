@@ -35,6 +35,7 @@ void onWrite(BLECharacteristic *pCharacteristic);
 void transmitOut(char* output);
 void updateLED(void * pvParameters);
 void IRAM_ATTR enter_sleep();
+void transmitString(String output_str);
 
 #define uS_TO_S_FACTOR 1000000  /* Conversion factor for micro seconds to seconds */
 
@@ -125,14 +126,14 @@ void loop() {
 
 	// Update USART
 	if(device_connected && !flashing && ble_state == 0 && !receiving && !transmit && (ATmegaSerial.available() > 0 || bufferCounter > 0 || serial_counter > 0)) {
-
+		/*
 		if(bufferCounter < 5) {
-			char* usart_out = "0xUT ";
+			char* usart_out = "";
 			for(int i = 0; i < sizeof(usart_out)+1; i++) {
 				usart_buffer[i] = uint8_t(usart_out[i]);
 				bufferCounter ++;
 			}
-		}
+		}*/
 		
 		if (ATmegaSerial.available() > 0) {
 			uint8_t serialByte = ATmegaSerial.read();
@@ -142,7 +143,7 @@ void loop() {
 				bufferCounter ++;
 		}
 
-		if (bufferCounter > 255 || (ATmegaSerial.available() == 0 && serial_counter > 120 && bufferCounter > 4)) {
+		if (bufferCounter > 255 || (ATmegaSerial.available() == 0 && serial_counter > 120 && bufferCounter > 0)) {
 			uint8_t output_buffer[bufferCounter];
 			for(int i = 0; i < bufferCounter; i++) {
 				output_buffer[i] = usart_buffer[i];
@@ -354,28 +355,39 @@ void process_ble_recv() {
 
 	DynamicJsonBuffer JSONBuffer;                         //Memory pool
 	JsonObject& parsed = JSONBuffer.parseObject(recv_buffer); 
-	String cmd = parsed["cmd"];
-	
-	if(cmd == "0x0LI") {
-		String device_info = "{\"volt\":";
-		analogRead(35);
-		int val = analogRead(35);
-		device_info += String(val);
-		device_info +=",\"ver\":";
-		device_info += String(husky_settings.firmware_version);
-		device_info += ",\"lpto\":";
-		device_info += String(husky_settings.low_power_timeout);
-		device_info += ",\"lpcu\":";
-		device_info += String(husky_settings.low_power_check);
-		device_info += ",\"serial\":\"";
-		device_info += String(serialNum);
-		device_info += "\"}";
+	try {
+		JsonObject& parsed = JSONBuffer.parseObject(recv_buffer); 
+
+		String cmd = parsed["cmd"];
 		
-		byte output[device_info.length()];
-		for(int i = 0; i < device_info.length(); i++)
-			output[i] = device_info[i];
-		pTxCharacteristic->setValue(output, sizeof(output));
-		pTxCharacteristic->notify();
+		if(cmd == "0x0LI") {
+			String device_info = "{\"volt\":";
+			analogRead(35);
+			int val = analogRead(35);
+			device_info += String(val);
+			device_info +=",\"ver\":";
+			device_info += String(husky_settings.firmware_version);
+			device_info += ",\"lpto\":";
+			device_info += String(husky_settings.low_power_timeout);
+			device_info += ",\"lpcu\":";
+			device_info += String(husky_settings.low_power_check);
+			device_info += ",\"serial\":\"";
+			device_info += String(serialNum);
+			device_info += "\"}";
+			
+			transmitString(device_info); 
+		} else if(cmd == "0x0FA") {
+			ble_state = 1;
+			String output_cmd = "{\"cmd\":\"0x0FA\"}";
+			transmitString(output_cmd);
+		}
+	} catch(int e) {
+		if(ble_state == 0) {
+			serialBuff += recv_buffer;
+	  		serialBuff += '\r';
+	  		writeSerial(serialBuff);
+	  		serialBuff = "";
+		}
 	}
 
     /*
@@ -559,6 +571,14 @@ void ReceiveCallBack::onWrite(BLECharacteristic *pCharacteristic) {
 		}
 	}
 	receiving = false;
+}
+
+void transmitString(String output_str) {
+	byte output[output_str.length()];
+	for(int i = 0; i < output_str.length(); i++)
+		output[i] = output_str[i];
+	pTxCharacteristic->setValue(output, sizeof(output));
+	pTxCharacteristic->notify();
 }
 
 void transmitOut(char* output) {
