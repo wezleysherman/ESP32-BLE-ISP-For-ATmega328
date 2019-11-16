@@ -51,7 +51,7 @@ void setup() {
 	EEPROM.commit();
 	
 	ATmegaSerial.begin(9600, SERIAL_8N1, 3, 1);
-	
+	//Serial.println("TEST");
 	ledcSetup(0, 5000, 8);
 	ledcAttachPin(12, 0);
 
@@ -181,6 +181,9 @@ void loop() {
 
 // BLE FSM?
 void process_ble_recv() {
+	if(recv_buffer.length() > 0)
+		Serial.println(recv_buffer);
+
 	switch(ble_state) {
 		case 1:			// Flash
 			if(recv_buffer.substring(recv_buffer.length()-5, recv_buffer.length()).equals("0x0FC")) {
@@ -569,6 +572,20 @@ void ReceiveCallBack::onWrite(BLECharacteristic *pCharacteristic) {
 			//	Serial.println(outChar, DEC);
 			}
 		}
+	}
+	
+	if(recv_buffer.length() != (rxVal.length()/2) || recv_buffer.length() == 0) {
+		Serial.println("Corrupt Data... Aborting!");
+		flashIdx = 0;
+		recv_buffer = "";
+		ble_state = 0;
+		String output_str = "{\"cmd\":\"0x0F2\"}";
+		byte output[output_str.length()];
+		for(int i = 0; i < output_str.length(); i++)
+			output[i] = output_str[i];
+		pTxCharacteristic->setValue(output, sizeof(output));
+		pTxCharacteristic->notify();
+		flashing = false;
 	}
 	receiving = false;
 }
