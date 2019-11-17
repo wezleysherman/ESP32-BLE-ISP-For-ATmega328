@@ -18,6 +18,8 @@
 #include "esp32-hal-cpu.h"
 #include "config.h"
 #include "SPI.h"
+#include <math.h>  
+
 
 void process_ble_recv();
 void IRAM_ATTR watchdog_reset();
@@ -40,7 +42,7 @@ void transmitString(String output_str);
 #define uS_TO_S_FACTOR 1000000  /* Conversion factor for micro seconds to seconds */
 
 void setup() {
-//	Serial.begin(115200);
+	//Serial.begin(115200);
 	// Restore WiFi settings if they exist
 	EEPROM.begin(EEPROM_SIZE);
 	EEPROM.get(0, wifi_settings);
@@ -357,7 +359,7 @@ void process_ble_recv() {
 	}
 
 	DynamicJsonBuffer JSONBuffer;                         //Memory pool
-	JsonObject& parsed = JSONBuffer.parseObject(recv_buffer); 
+//	JsonObject& parsed = JSONBuffer.parseObject(recv_buffer); 
 	try {
 		JsonObject& parsed = JSONBuffer.parseObject(recv_buffer); 
 
@@ -383,11 +385,24 @@ void process_ble_recv() {
 			ble_state = 1;
 			String output_cmd = "{\"cmd\":\"0x0FA\"}";
 			transmitString(output_cmd);
+		} else if(recv_buffer.length() > 0) {
+			//Serial.println(cmd);
+			//Serial.println(parsed);
+		//	Serial.println("??");
+			if(ble_state == 0) {
+				serialBuff += recv_buffer;
+		  		serialBuff += '\r';
+		  		//Serial.println(serialBuff);
+		  		writeSerial(serialBuff);
+		  		serialBuff = "";
+			}
 		}
 	} catch(int e) {
+		Serial.println("Serial in");
 		if(ble_state == 0) {
 			serialBuff += recv_buffer;
 	  		serialBuff += '\r';
+	  		Serial.println(serialBuff);
 	  		writeSerial(serialBuff);
 	  		serialBuff = "";
 		}
@@ -574,7 +589,13 @@ void ReceiveCallBack::onWrite(BLECharacteristic *pCharacteristic) {
 		}
 	}
 	
-	if(recv_buffer.length() != (rxVal.length()/2) || recv_buffer.length() == 0) {
+	if((recv_buffer.length() != ceil((rxVal.length()/2.0F)) && recv_buffer.length() != floor((rxVal.length()/2.0F))) || recv_buffer.length() == 0) {
+		Serial.println(recv_buffer);
+		Serial.println(recv_buffer.length());
+		Serial.println(ceil((rxVal.length()/2.0F)));
+		Serial.println(rxVal.length());
+		Serial.println(rxVal.length()/2.0F);
+
 		Serial.println("Corrupt Data... Aborting!");
 		flashIdx = 0;
 		recv_buffer = "";
