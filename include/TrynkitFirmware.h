@@ -8,7 +8,7 @@
 #define CHARACTERISTIC_UUID_TX "80c784ac-e3f9-11e8-9f32-f2801f1b9fd1"
 
 // Pin Defines
-#define EEPROM_SIZE 1000
+#define EEPROM_SIZE 3000
 
 // Global Variables
 unsigned long updateTimer; // WiFi OTA Timer 

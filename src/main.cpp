@@ -42,17 +42,20 @@ void transmitString(String output_str);
 #define uS_TO_S_FACTOR 1000000  /* Conversion factor for micro seconds to seconds */
 
 void setup() {
-	//Serial.begin(115200);
+	Serial.begin(115200);
 	// Restore WiFi settings if they exist
 	EEPROM.begin(EEPROM_SIZE);
+
 	EEPROM.get(0, wifi_settings);
 	EEPROM.get(sizeof(wifi_settings), husky_settings);
 	if(husky_settings.firmware_version == -1) 
 		husky_settings = config_defaults;
 	EEPROM.put(sizeof(wifi_settings), husky_settings);
 	EEPROM.commit();
+
+	//Serial.println(husky_settings.device_id);
 	
-	ATmegaSerial.begin(9600, SERIAL_8N1, 3, 1);
+	//ATmegaSerial.begin(9600, SERIAL_8N1, 3, 1);
 	//Serial.println("TEST");
 	ledcSetup(0, 5000, 8);
 	ledcAttachPin(12, 0);
@@ -473,7 +476,10 @@ void enter_sleep() {
 
 // Methods
 void initBLE() {
-	// digitalWrite(12, HIGH);
+	 ////digitalWrite(12, HIGH);
+	//Serial.println(husky_settings.device_id);
+	//char* ble_uuid = husky_settings.device_id;
+	//Serial.println(ble_uuid);
 	BLEDevice::init("Trynkit Husky");
 	pServer = BLEDevice::createServer();
 	// Set up callback function for whenever something is received.
