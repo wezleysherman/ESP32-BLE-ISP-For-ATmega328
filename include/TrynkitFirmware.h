@@ -54,7 +54,7 @@ void IRAM_ATTR watchdog_reset();
 void initBLE();
 void reset();
 void fetchOTA();
-
+bool calcChecksum(String val, int chksum);
 // Amazon's HTTPS certificate for Trynkit's backend -.. Expires?
 const char* HTTPS_CERT = "-----BEGIN CERTIFICATE-----\n" \
 "MIIESTCCAzGgAwIBAgITBn+UV4WH6Kx33rJTMlu8mYtWDTANBgkqhkiG9w0BAQsF\n" \

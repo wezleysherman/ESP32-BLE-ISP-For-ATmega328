@@ -13,7 +13,7 @@ typedef struct husky_settings {
 	int firmware_version;
 	unsigned char low_power_timeout; // minutes -- active if greater than 0
 	unsigned char low_power_check; // minutes -- active if greater than 0
-  char* device_id;
+  char device_id[37];
 } HUSKY;
 
 struct husky_settings config_defaults = {

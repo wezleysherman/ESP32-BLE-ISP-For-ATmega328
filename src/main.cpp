@@ -42,20 +42,20 @@ void transmitString(String output_str);
 #define uS_TO_S_FACTOR 1000000  /* Conversion factor for micro seconds to seconds */
 
 void setup() {
-	Serial.begin(115200);
+	//Serial.begin(115200);
 	// Restore WiFi settings if they exist
 	EEPROM.begin(EEPROM_SIZE);
 
-	EEPROM.get(0, wifi_settings);
-	EEPROM.get(sizeof(wifi_settings), husky_settings);
-	if(husky_settings.firmware_version == -1) 
+	//EEPROM.get(0, wifi_settings);
+	EEPROM.get(0, husky_settings);
+	if(husky_settings.firmware_version == -1) {
 		husky_settings = config_defaults;
-	EEPROM.put(sizeof(wifi_settings), husky_settings);
-	EEPROM.commit();
-
+		EEPROM.put(0, husky_settings);
+		EEPROM.commit();
+	}
 	//Serial.println(husky_settings.device_id);
 	
-	//ATmegaSerial.begin(9600, SERIAL_8N1, 3, 1);
+	ATmegaSerial.begin(9600, SERIAL_8N1, 3, 1);
 	//Serial.println("TEST");
 	ledcSetup(0, 5000, 8);
 	ledcAttachPin(12, 0);
@@ -381,6 +381,8 @@ void process_ble_recv() {
 			device_info += String(husky_settings.low_power_check);
 			device_info += ",\"serial\":\"";
 			device_info += String(serialNum);
+			device_info += "\",\"uuid\":\"";
+			device_info += husky_settings.device_id;
 			device_info += "\"}";
 			
 			transmitString(device_info); 
@@ -388,6 +390,30 @@ void process_ble_recv() {
 			ble_state = 1;
 			String output_cmd = "{\"cmd\":\"0x0FA\"}";
 			transmitString(output_cmd);
+		} else if(cmd == "0x0AU") {
+			String new_id = parsed["uuid"];
+			int checksum = parsed["chksum"];
+			if(calcChecksum(new_id, checksum)) {
+				char *updated_id = new char[new_id.length()+1];
+				strcpy(updated_id, new_id.c_str());
+				/*//strncpy(husky_settings.device_id, updated_id, sizeof(updated_id)-1);
+				//husky_settings.device_id = updated_id;
+				memcpy(husky_settings.device_id, updated_id, 37);*/
+			//	husky_settings.device_id = "";
+				for(int i = 0; i < 37; i++) {
+					husky_settings.device_id[i] = updated_id[i];
+				}
+				//husky_settings.device_id = "TEST";
+				EEPROM.put(0, husky_settings);
+				EEPROM.commit();
+				EEPROM.get(0, husky_settings);
+				
+				String output_cmd = "{\"cmd\":\"0x0AA\", \"uuid\":\""+String(husky_settings.device_id)+"\"}";
+				transmitString(output_cmd);
+			} else {
+				String output_cmd = "{\"cmd\":\"0x0AF\"}";
+				transmitString(output_cmd);
+			}
 		} else if(recv_buffer.length() > 0) {
 			//Serial.println(cmd);
 			//Serial.println(parsed);
@@ -484,7 +510,7 @@ void initBLE() {
 	pServer = BLEDevice::createServer();
 	// Set up callback function for whenever something is received.
 	pServer->setCallbacks(new MyServerCallbacks());
-	BLEService *pService = pServer->createService(SERVICE_UUID);
+	BLEService *pService = pServer->createService(husky_settings.device_id);
 	pTxCharacteristic = pService->createCharacteristic(CHARACTERISTIC_UUID_TX, BLECharacteristic::PROPERTY_NOTIFY);
 	pTxCharacteristic->addDescriptor(new BLE2902());
 	BLECharacteristic * pRxCharacteristic = pService->createCharacteristic(CHARACTERISTIC_UUID_RX, BLECharacteristic::PROPERTY_WRITE);
@@ -656,4 +682,12 @@ void updateLED(void * pvParameters) {
         ledcWrite(0, 100);    
     }
   }
+}
+
+
+bool calcChecksum(String val, int chksum) {
+	int checksum = 0;
+	for(int i = 0; i < val.length(); i++) 
+		checksum += val[i];
+	return checksum == chksum;
 }
