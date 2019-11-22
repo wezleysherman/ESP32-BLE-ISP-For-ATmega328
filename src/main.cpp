@@ -516,6 +516,8 @@ void initBLE() {
 	BLECharacteristic * pRxCharacteristic = pService->createCharacteristic(CHARACTERISTIC_UUID_RX, BLECharacteristic::PROPERTY_WRITE);
 	pRxCharacteristic->setCallbacks(new ReceiveCallBack());
 	pService->start();
+	pServer->getAdvertising()->addServiceUUID(husky_settings.device_id);
+	pServer->getAdvertising()->setScanResponse(true);
 	pServer->getAdvertising()->start();
 }
 
