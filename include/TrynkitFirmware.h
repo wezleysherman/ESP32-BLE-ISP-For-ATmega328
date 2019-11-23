@@ -27,6 +27,8 @@ String serialBuff;
 int flashIdx = 0;
 bool wifiConnected = false;
 bool setConnect = false;
+bool setReset = false;
+uint resetUUIDTimer = 0;
 // New
 const int watchdog_timeout = 5000;
 hw_timer_t *wdt = NULL;

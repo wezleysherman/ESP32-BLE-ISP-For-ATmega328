@@ -42,7 +42,7 @@ void transmitString(String output_str);
 #define uS_TO_S_FACTOR 1000000  /* Conversion factor for micro seconds to seconds */
 
 void setup() {
-	//Serial.begin(115200);
+//	Serial.begin(115200);
 	// Restore WiFi settings if they exist
 	EEPROM.begin(EEPROM_SIZE);
 
@@ -90,6 +90,7 @@ void loop() {
 	// Update BLE
 	if(device_connected) { // Connected
 		disconnectWiFi(); // If Wifi is enabled -- disable it.
+		setReset = false;
 		if(!flashing && !receiving) {
 			// Check recv
 			process_ble_recv();
@@ -104,7 +105,28 @@ void loop() {
 			transmit = false;
 			memcpy(out_buff, empty, sizeof(empty));
 		}
-	} 
+	} else {
+		if(setReset == false) {
+			pinMode(RESET, INPUT_PULLUP);
+			setReset = true;
+			//Serial.println("Starting watch");
+		}
+		if(digitalRead(RESET) == LOW) {
+			//Serial.println(resetUUIDTimer);
+			resetUUIDTimer ++;
+			if(resetUUIDTimer > 50000) {
+				
+				for(int i = 0; i < 37; i++) {
+					husky_settings.device_id[i] = config_defaults.device_id[i];
+				}
+				//husky_settings.device_id = "TEST";
+				EEPROM.put(0, husky_settings);
+				EEPROM.commit();
+				EEPROM.get(0, husky_settings);
+				ESP.restart();
+			}
+		} else {resetUUIDTimer = 0;}
+	}
 
 	if(!device_connected && old_device_connected) { // Disconnecting
 		Serial.println("Disconnecting");
@@ -670,7 +692,7 @@ void updateLED(void * pvParameters) {
     if(device_connected) {
       ledcWrite(0, indexBlink);
       if(dir == 0) {
-         indexBlink ++;
+        indexBlink ++;
       } else {
         indexBlink --;
       }
@@ -681,7 +703,23 @@ void updateLED(void * pvParameters) {
         dir = 0;
       }
     } else {
-        ledcWrite(0, 100);    
+    	if(husky_settings.device_id != config_defaults.device_id) {
+        	ledcWrite(0, 100);    
+    	} else {
+    		if(dir == 0) {
+    		  ledcWrite(0, 100);
+    		  indexBlink ++;
+    		} else {
+    		  indexBlink --;
+    		  ledcWrite(0, 1);
+    		}
+    		
+    		if(indexBlink >= 100) {
+    		  dir = 1;
+    		} else if(indexBlink <= 0) {
+    		  dir = 0;
+    		}
+    	}
     }
   }
 }

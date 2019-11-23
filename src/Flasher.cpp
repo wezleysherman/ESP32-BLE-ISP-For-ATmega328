@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include "Flasher.h"
+#include "soc/rtc_wdt.h"
 
 int pmode = 0;
 SPISettings fuses_spisettings = SPISettings(100000, MSBFIRST, SPI_MODE0);
@@ -16,13 +17,16 @@ byte* flashAtmega(byte* hextext) {
 	switch(flash_state) {
 		case 0:
 			{
+        Serial.println("Case 0 ");
 				target_poweron();
 				uint16_t signature;
 				signature = readSignature();
 				if(!signature) return nullptr;
 				eraseChip();
 				uint16_t out = programFuses(image_progfuses);
-				end_pmode();
+				rtc_wdt_feed();
+        end_pmode();
+        rtc_wdt_feed();
 				start_pmode();
 				pageaddr = 0;
 				pagesize = 128;//pgm_read_byte(&targetimage->image_pagesize);
@@ -31,10 +35,12 @@ byte* flashAtmega(byte* hextext) {
 				for (uint8_t i=0; i<pagesize; i++)
 					pageBuffer[i] = 0xFF;
 				flash_state = 1;
+        Serial.println("Case 0 end");
 			}
 			break;
 		case 1:
 			{
+        Serial.println("Case 1");
 				if (pageaddr < chipsize && hextext) {   
          // Serial.print("Page: ");
         //  Serial.println(pageaddr);
@@ -153,6 +159,7 @@ byte* flashAtmega(byte* hextext) {
 			break;
 		case 3:
 			{
+        Serial.println("Case 3");
 				boolean blankpage = true;
 				for (uint8_t i=0; i<pagesize; i++) {
 					if (pageBuffer[i] != 0xFF) blankpage = false;
@@ -507,6 +514,7 @@ boolean flashPage (byte *pagebuff, uint16_t pageaddr, uint8_t pagesize) {
 }
 
 void start_pmode() {
+  Serial.println("Starting p mode");
   pinMode(13, INPUT); // restore to default
 
   SPI.begin();
@@ -524,9 +532,11 @@ void start_pmode() {
   pinMode(MOSI, OUTPUT);
   spi_transaction(0xAC, 0x53, 0x00, 0x00);
   pmode = 1;
+  Serial.println("End p mode");
 }
 
 void end_pmode() {
+  Serial.println("End p Mode");
   SPI.end();
   digitalWrite(MISO, LOW);    /* Make sure pullups are off too */
   pinMode(MISO, INPUT);
@@ -537,6 +547,7 @@ void end_pmode() {
   digitalWrite(RESET, LOW);
   pinMode(RESET, INPUT);
   pmode = 0;
+  Serial.println("End P Mode");
 }
 
 
@@ -546,6 +557,7 @@ void end_pmode() {
  */
 boolean target_poweron()
 {
+  Serial.println("Powering on target");
   pinMode(LED_PROGMODE, OUTPUT);
   digitalWrite(LED_PROGMODE, HIGH);
   digitalWrite(RESET, LOW);  // reset it right away.
@@ -587,6 +599,7 @@ void busyWait(void)  {
  * Functions specific to ISP programming of an AVR
  */
 uint16_t spi_transaction (uint8_t a, uint8_t b, uint8_t c, uint8_t d) {
+  rtc_wdt_feed();
   uint8_t n, m, r;
   SPI.transfer(a); 
   n = SPI.transfer(b);
